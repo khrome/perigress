@@ -3,6 +3,8 @@ const arrays = require('async-arrays');
 //const joiToJSONSchema = require('joi-to-json-schema');
 const jsonToJSONSchema = require('to-json-schema');
 const joiToJSONSchema = require('joi-to-json')
+const jsonSchemaFaker = require('json-schema-faker');
+const { makeGenerator } = require('./random');
 const fs = require('fs');
 const path = require('path');
 
@@ -29,13 +31,41 @@ DummyEndpoint.prototype.cleanupOptions = function(options){
 }
 
 DummyEndpoint.prototype.attach = function(expressInstance){
-    console.log('!!', this.options);
     let prefix = this.options.path.substring(
         path.join(this.options.root, this.options.subpath).length
     );
+    let urlPath = prefix+'/'+this.options.spec.split('.').shift();
+    // TODO: make saving work
+    let instances = {};
+    let ob = this;
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ]('/', function (req, res){
+    ](`${urlPath}/:id`, function (req, res){
+        // TODO: consistency
+        // TODO: coherence
+        let gen = makeGenerator(req.params.id);
+        jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
+        jsonSchemaFaker.resolve(ob.schema, [], process.cwd()).then((value)=>{
+            if(value.id) value.id = req.params.id;
+            res.send(JSON.stringify(value, null, '    '))
+        }).catch((ex)=>{
+
+        });
+    });
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/:id/edit`, function (req, res){
+        res.send('hello world')
+    });
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/list`, function (req, res){
+        res.send('hello world')
+    });
+
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/create`, function (req, res){
         res.send('hello world')
     });
 }

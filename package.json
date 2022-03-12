@@ -1,7 +1,7 @@
 {
   "name": "perigress",
   "version": "0.0.1",
-  "main": "api-dummy.js",
+  "main": "perigress.js",
   "devDependencies": {
     "chai": "^4.3.6",
     "joi": "^17.6.0",
@@ -14,6 +14,7 @@
     "joi-to-json-schema": "^5.1.0",
     "json-schema-faker": "^0.5.0-rcv.42",
     "kitchen-sync": "0.0.1",
+    "seed-random": "^2.2.0",
     "to-json-schema": "^0.2.5"
   }
 }
