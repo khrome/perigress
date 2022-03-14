@@ -23,7 +23,7 @@ peri generate-migration ./path/to/snapshot1 ./path/to/snapshot2 down --sequelize
 Generate a set of tables using the provided definitions in SQL
 
 ```bash
-peri generate-tables ./path/to/snapshot down --sql
+peri generate-tables ./path/to/snapshot --sql
 ```
 
 Generate some fake data using the `transaction` definition.
