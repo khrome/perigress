@@ -7,6 +7,7 @@ const jsonSchemaFaker = require('json-schema-faker');
 const { makeGenerator } = require('./random');
 const fs = require('fs');
 const path = require('path');
+const { WKR, classifyRegex, generateData } = require('well-known-regex');
 
 const defaults = {
     error : ()=>{
@@ -20,6 +21,9 @@ const defaults = {
 
 const DummyEndpoint = function(options){
     this.options = options || {};
+    if(this.options.spec && !this.options.name){
+        this.options.name = this.options.spec.split('.').shift();
+    }
     this.endpointOptions = {};
     this.cleanupOptions(this.endpointOptions);
 }
@@ -28,6 +32,29 @@ DummyEndpoint.prototype.cleanupOptions = function(options){
     if(!options.method){
         options.method = 'ALL';
     }
+}
+
+DummyEndpoint.prototype.generate = function(id, cb){
+    let gen = makeGenerator(id);
+    jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
+    jsonSchemaFaker.resolve(this.schema, [], process.cwd()).then((value)=>{
+        if(value.id) value.id = id;
+        let generated;
+        try{
+            generated = generateData(this.schema, {
+                locale: 'en_us',
+                seed: id
+            });
+        }catch(ex){
+            console.log(ex);
+        }
+        Object.keys(generated).forEach((key)=>{
+            value[key] = generated[key];
+        });
+        cb(null, value);
+    }).catch((ex)=>{
+
+    });
 }
 
 DummyEndpoint.prototype.attach = function(expressInstance){
@@ -43,13 +70,8 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     ](`${urlPath}/:id`, function (req, res){
         // TODO: consistency
         // TODO: coherence
-        let gen = makeGenerator(req.params.id);
-        jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
-        jsonSchemaFaker.resolve(ob.schema, [], process.cwd()).then((value)=>{
-            if(value.id) value.id = req.params.id;
-            res.send(JSON.stringify(value, null, '    '))
-        }).catch((ex)=>{
-
+        this.generate(req.params.id, (err, generated)=>{
+            res.send(JSON.stringify(generated, null, '    '))
         });
     });
     expressInstance[
@@ -73,7 +95,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
 DummyEndpoint.prototype.loadSchema = function(filePath, extension, callback){
     switch(extension){
         case 'spec.js':
-            schema = require(filePath);
+            schema = require(path.join(process.cwd(), filePath));
             schema = joiToJSONSchema(schema);
             setTimeout(()=>{
                 callback(null, schema);

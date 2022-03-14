@@ -2,6 +2,7 @@ const ks = require('kitchen-sync');
 const arrays = require('async-arrays');
 const fs = require('fs');
 const path = require('path');
+const { toSQL, toSQLUpdates } = require('./schema-to-sql');
 
 const DummyEndpoint = require('./dummy-endpoint');
 
@@ -42,6 +43,67 @@ DummyAPI.prototype.resultSpec = function(dir){
     return getLeastGeneralPathMatch(this.resultSpecs, dir);
 }
 
+DummyAPI.prototype.generateMigrations = function(otherAPI, options, cb){
+    this.ready.then(()=>{
+        otherAPI.ready.then(()=>{
+            if((!options.format) || options.format.toLowerCase() === 'sql'){
+                let ups = [];
+                let downs = [];
+                arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
+                    let otherEndpoint = otherAPI.endpoints.find((e)=> e.options.name === endpoint.options.name);
+                    let statements = toSQLUpdates(endpoint.options.name, endpoint.schema, otherEndpoint.schema);
+                    ups = ups.concat(statements.ups);
+                    downs = downs.concat(statements.downs);
+                    //TODO: write definitions if output option is set
+                    done();
+                }, ()=>{
+                    cb(null, {ups, downs: downs.reverse()});
+                });
+                return;
+            }
+            if(options.format.toLowerCase() === 'sequelize' || !options.format){
+                arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
+
+                }, ()=>{
+
+                });
+                return;
+            }
+            setTimeout(()=>{
+                cb(new Error('Unknown format: '+options.format))
+            })
+        });
+    });
+}
+
+DummyAPI.prototype.generateDataDefinitions = function(options, cb){
+    this.ready.then(()=>{
+        if((!options.format) || options.format.toLowerCase() === 'sql'){
+            let tableDefinitions = [];
+            arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
+                let statements = toSQL(endpoint.options.name, endpoint.schema);
+                tableDefinitions = tableDefinitions.concat(statements);
+                //TODO: write definitions if output option is set
+                done();
+            }, ()=>{
+                cb(null, tableDefinitions.join(";\n")+';')
+            });
+            return;
+        }
+        if(options.format.toLowerCase() === 'sequelize' || !options.format){
+            arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
+
+            }, ()=>{
+
+            });
+            return;
+        }
+        setTimeout(()=>{
+            cb(new Error('Unknown format: '+options.format))
+        })
+    });
+}
+
 DummyAPI.prototype.errorSpec = function(instance){
     return getLeastGeneralPathMatch(this.errorSpecs, dir);
 }
@@ -63,6 +125,7 @@ DummyAPI.prototype.load = function(dir, cb){
         }else this.readyResolve = resolve;
     })]);
     this.scan(directory, (err, specs, resultsIndex, errorIndex)=>{
+        if(err) return console.log(err);
         this.resultSpecs = resultsIndex;
         this.errorSpecs = errorIndex;
         if(!specs) throw new Error('ack '+directory)
@@ -103,11 +166,11 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs){
                     }, specs)
                 }else{
                     if(item === 'resultSet.spec.js'){
-                        resultSpecs[directory] = require(itemPath);
+                        resultSpecs[directory] = require(path.join(process.cwd(), itemPath));
                         return done();
                     }
                     if(item === 'error.spec.js'){
-                        errorSpecs[directory] = require(itemPath);
+                        errorSpecs[directory] = require(path.join(process.cwd(), itemPath));
                         return done();
                     }
                     if(item.indexOf('.spec.js') !== -1){
