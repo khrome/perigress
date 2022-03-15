@@ -1,6 +1,5 @@
 const ks = require('kitchen-sync');
 const arrays = require('async-arrays');
-//const joiToJSONSchema = require('joi-to-json-schema');
 const jsonToJSONSchema = require('to-json-schema');
 const joiToJSONSchema = require('joi-to-json')
 const jsonSchemaFaker = require('json-schema-faker');

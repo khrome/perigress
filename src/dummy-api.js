@@ -3,6 +3,7 @@ const arrays = require('async-arrays');
 const fs = require('fs');
 const path = require('path');
 const { toSQL, toSQLUpdates } = require('./schema-to-sql');
+const sequelize = require('./schema-to-sequelize');
 
 const DummyEndpoint = require('./dummy-endpoint');
 
@@ -62,10 +63,31 @@ DummyAPI.prototype.generateMigrations = function(otherAPI, options, cb){
                 return;
             }
             if(options.format.toLowerCase() === 'sequelize' || !options.format){
+                let ups = [];
+                let downs = [];
                 arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
-
+                    let otherEndpoint = otherAPI.endpoints.find((e)=> e.options.name === endpoint.options.name);
+                    let statements = sequelize.toSequelizeUpdates(endpoint.options.name, endpoint.schema, otherEndpoint.schema);
+                    ups = ups.concat(statements.ups);
+                    downs = downs.concat(statements.downs);
+                    done();
                 }, ()=>{
+                    result = options.seperate?
+                        {ups, downs: downs.reverse()}:
+                        `module.exports = {
+    up: (queryInterface, Sequelize) => {
+        return Promise.all([
+        ${'    '+ups.join(",\n").replace(/\n/g, "\n            ")}
+        ]);
+    },
 
+    down: (queryInterface, Sequelize) => {
+        return Promise.all([
+        ${'    '+downs.reverse().join(",\n").replace(/\n/g, "\n            ")}
+        ]);
+    }
+};`;
+                    cb(null, result);
                 });
                 return;
             }
@@ -90,11 +112,31 @@ DummyAPI.prototype.generateDataDefinitions = function(options, cb){
             });
             return;
         }
-        if(options.format.toLowerCase() === 'sequelize' || !options.format){
+        if(options.format.toLowerCase() === 'sequelize'){
+            let tableDefinitions = [];
+            let include = `const { Sequelize, DataTypes, Model } = require('@sequelize/core');`;
+            include += `\nconst sequelize = require('${options.sequelizePath}');\n`
+            let exportText = `module.exports = ###;`
+            if(!options.seperate) tableDefinitions.push(include);
+            let names = [];
             arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
-
+                let capName = endpoint.options.name.substring(0,1).toUpperCase()+
+                    endpoint.options.name.substring(1);
+                names.push(capName);
+                let statements = sequelize.toSequelize(endpoint.options.name, endpoint.schema);
+                if(options.seperate){
+                    statements = statements.map(
+                        (s)=>include+"\n"+s+"\n"+exportText.replace('###', capName)
+                    )
+                }
+                tableDefinitions = tableDefinitions.concat(statements);
+                done();
             }, ()=>{
-
+                let result = options.seperate?tableDefinitions:tableDefinitions.join("\n")+'';
+                if(!options.seperate){
+                    result = result+"\n"+exportText.replace('###', `{${names.join(', ')}}`)
+                }
+                cb(null, result)
             });
             return;
         }

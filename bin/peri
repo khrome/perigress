@@ -35,7 +35,13 @@ app.command({
     action : function(argv, target, complete){
         let path = argv.api || target || path.join(__dirname, '../../..')
         let perigress = new Perigress.DummyAPI(path);
-        perigress.generateDataDefinitions({}, (err, result)=>{
+        let format = 'sql';
+        if(argv.sequelize) format = 'sequelize';
+        perigress.generateDataDefinitions({
+            format,
+            sequelizePath: argv.sequelize,
+            seperate: argv.seperate
+        }, (err, result)=>{
             console.log(result);
             complete();
         });
@@ -56,8 +62,18 @@ app.command({
         if(incoming === 'down') type = 'downs';
         let perigress1 = new Perigress.DummyAPI(path);
         let perigress2 = new Perigress.DummyAPI(destination);
-        perigress1.generateMigrations(perigress2, {}, (err, result)=>{
-            console.log((result[type]||[]).join(";\n"));
+        let format = 'sql';
+        if(argv.sequelize) format = 'sequelize';
+        perigress1.generateMigrations(perigress2, {
+            format,
+            sequelizePath: argv.sequelize,
+            seperate: argv.seperate
+        }, (err, result)=>{
+            if(typeof result === 'string'){
+                console.log(result);
+            }else{
+                console.log((result[(type || 'ups')]||[]).join(";\n"));
+            }
             complete();
         });
         //
@@ -89,8 +105,9 @@ app.command({
 });
 
 app.argument('api', 'string', 'Path to the directory defining the API', 1);
-app.argument('sequelize', 'boolean', 'Output sequelize scripts for data definitions', 0);
+app.argument('sequelize', 'string', 'Output sequelize scripts for data definitions', 1);
 app.argument('sql', 'boolean', 'Output raw SQL for data definitions', 0);
+app.argument('seperate', 'boolean', 'Spit data model into multiple files', 0);
 
 app.header();
 app.footer();
