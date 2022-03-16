@@ -62,17 +62,5 @@ describe('perigress', ()=>{
             });
         });
 
-        it.skip('runs the demo API and requests a consistent object', (done)=>{
-            /*const app = express();
-            const api = new Perigress.DummyAPI({
-                subpath : 'api',
-                dir: __dirname
-            });
-            api.ready.then(()=>{
-                api.
-            }).catch((ex)=>{
-                should.not.exist(ex);
-            });*/
-        });
     })
 })

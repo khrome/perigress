@@ -2,8 +2,8 @@ const ks = require('kitchen-sync');
 const arrays = require('async-arrays');
 const fs = require('fs');
 const path = require('path');
-const { toSQL, toSQLUpdates } = require('./schema-to-sql');
-const sequelize = require('./schema-to-sequelize');
+const { toSQL, toSQLUpdates } = require('json-schema2sql');
+const sequelize = require('json-schema2sequelize');
 
 const DummyEndpoint = require('./dummy-endpoint');
 
