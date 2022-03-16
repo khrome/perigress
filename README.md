@@ -37,7 +37,7 @@ Command Line
 
 <table>
     <tr>
-        <td><details><summary> **SQL+db-migrate** </summary><p>
+        <td><details><summary> <b>SQL+db-migrate</b> </summary><p>
 
 let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
 
@@ -56,8 +56,9 @@ let's assume you have a set of validators in `./data/validators`... here's how y
     cp -R ./data/validators ./.lastMigration
 ```
 
-        </p></details></td>
-        <td><details><summary> **Sequelize** </summary><p>
+</p></details></td>
+<td><details><summary> <b>Sequelize</b> </summary><p>
+
 
 let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
 
@@ -76,8 +77,9 @@ let's assume you have a set of validators in `./data/validators`... here's how y
     cp -R ./data/validators ./.lastMigration
 ```
 
-        </p></details></td>
-        <td><details><summary> **Mongo** </summary><p>
+</p></details></td>
+<td><details><summary> **Mongo** </summary><p>
+
 
 let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
 
