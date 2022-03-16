@@ -15,6 +15,7 @@ const DummyAPI = function(dir){
     });
     this.resultSpecs = {};
     this.errorSpecs = {};
+    this.configSpecs = {};
     this.endpoints = [];
     if(dir){
         this.load(dir, ()=>{
@@ -146,8 +147,12 @@ DummyAPI.prototype.generateDataDefinitions = function(options, cb){
     });
 }
 
-DummyAPI.prototype.errorSpec = function(instance){
+DummyAPI.prototype.errorSpec = function(dir){
     return getLeastGeneralPathMatch(this.errorSpecs, dir);
+}
+
+DummyAPI.prototype.config = function(dir){
+    return getLeastGeneralPathMatch(this.configs, dir);
 }
 
 DummyAPI.prototype.load = function(dir, cb){
@@ -166,10 +171,11 @@ DummyAPI.prototype.load = function(dir, cb){
             }
         }else this.readyResolve = resolve;
     })]);
-    this.scan(directory, (err, specs, resultsIndex, errorIndex)=>{
+    this.scan(directory, (err, specs, resultsIndex, errorIndex, configIndex)=>{
         if(err) return console.log(err);
         this.resultSpecs = resultsIndex;
         this.errorSpecs = errorIndex;
+        this.configSpecs = configIndex;
         if(!specs) throw new Error('ack '+directory)
         arrays.forEachEmission(specs, (spec, index, emit)=>{
             let parts = spec.spec.split('.');
@@ -177,7 +183,7 @@ DummyAPI.prototype.load = function(dir, cb){
             let type = parts.join('.');
             spec.subpath = opts.subpath;
             spec.root = opts.dir;
-            let endpoint = new DummyEndpoint(spec);
+            let endpoint = new DummyEndpoint(spec, this);
             endpoint.load(spec.path, name, type, (err)=>{
                 this.endpoints.push(endpoint);
                 emit();
@@ -198,6 +204,7 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs){
         if(err || (!result) || !result.length) return cb();
         let resultSpecs = {};
         let errorSpecs = {};
+        let configSpecs = {};
         let specs = incomingSpecs || [];
         arrays.forEachEmission(result, (item, index, done)=>{
             let itemPath = path.join(directory, item);
@@ -207,12 +214,17 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs){
                         done();
                     }, specs)
                 }else{
+                    let fixedPath = itemPath[0] === '/'?itemPath:path.join(process.cwd(), itemPath);
                     if(item === 'resultSet.spec.js'){
-                        resultSpecs[directory] = require(path.join(process.cwd(), itemPath));
+                        resultSpecs[directory] = require(fixedPath);
                         return done();
                     }
                     if(item === 'error.spec.js'){
-                        errorSpecs[directory] = require(path.join(process.cwd(), itemPath));
+                        errorSpecs[directory] = require(fixedPath);
+                        return done();
+                    }
+                    if(item === 'config.js'){
+                        configSpecs[directory] = require(fixedPath);
                         return done();
                     }
                     if(item.indexOf('.spec.js') !== -1){
@@ -244,7 +256,7 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs){
                 }
             });
         }, ()=>{
-            callback(null, specs, resultSpecs, errorSpecs);
+            callback(null, specs, resultSpecs, errorSpecs, configSpecs);
         });
     });
     return callback.return;

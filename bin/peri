@@ -64,6 +64,7 @@ app.command({
         let perigress2 = new Perigress.DummyAPI(destination);
         let format = 'sql';
         if(argv.sequelize) format = 'sequelize';
+        if(argv.mongo) format = 'mongo';
         perigress1.generateMigrations(perigress2, {
             format,
             sequelizePath: argv.sequelize,

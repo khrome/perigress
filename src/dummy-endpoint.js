@@ -18,11 +18,14 @@ const defaults = {
 }
 
 
-const DummyEndpoint = function(options){
+const DummyEndpoint = function(options, api){
     this.options = options || {};
     if(this.options.spec && !this.options.name){
         this.options.name = this.options.spec.split('.').shift();
     }
+    //this.config = api.config(this.options.path);
+    this.api = api;
+    //this.config = api.config();
     this.endpointOptions = {};
     this.cleanupOptions(this.endpointOptions);
 }
@@ -66,7 +69,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     let ob = this;
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:id`, function (req, res){
+    ](`${urlPath}/:id`, (req, res)=>{
         // TODO: consistency
         // TODO: coherence
         this.generate(req.params.id, (err, generated)=>{
@@ -75,33 +78,46 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     });
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:id/edit`, function (req, res){
+    ](`${urlPath}/:id/edit`, (req, res)=>{
         res.send('hello world')
     });
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/list`, function (req, res){
+    ](`${urlPath}/list`, (req, res)=>{
         res.send('hello world')
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/create`, function (req, res){
+    ](`${urlPath}/create`, (req, res)=>{
         res.send('hello world')
     });
 }
 
+DummyEndpoint.prototype.config = function(){
+    this.api.config(this.options.path);
+}
+
+DummyEndpoint.prototype.config = function(){
+    this.api.errorSpec(this.options.path);
+}
+
+DummyEndpoint.prototype.config = function(){
+    this.api.resultSpec(this.options.path);
+}
+
 DummyEndpoint.prototype.loadSchema = function(filePath, extension, callback){
+    let fixedPath = filePath[0] === '/'?filePath:path.join(process.cwd(), filePath);
     switch(extension){
         case 'spec.js':
-            schema = require(path.join(process.cwd(), filePath));
+            schema = require(fixedPath);
             schema = joiToJSONSchema(schema);
             setTimeout(()=>{
                 callback(null, schema);
             });
             break;
         case 'spec.json':
-            fs.readFile(filePath, (err, body)=>{
+            fs.readFile(fixedPath, (err, body)=>{
                 try{
                     schema = JSON.parse(body);
                     schema = jsonToJSONSchema(schema);
@@ -112,7 +128,7 @@ DummyEndpoint.prototype.loadSchema = function(filePath, extension, callback){
             });
             break;
         case 'spec.schema.json':
-            fs.readFile(filePath, (err, body)=>{
+            fs.readFile(fixedPath, (err, body)=>{
                 try{
                     schema = JSON.parse(body);
                     schema = jsonToJSONSchema(schema);
