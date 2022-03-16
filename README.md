@@ -87,8 +87,7 @@ let's assume you have a set of validators in `./data/validators`... here's how y
     # TBD
 ```
 
-        </p></details></td>
-    </tr>
+</p></details></td></tr>
 </table>
 
 
