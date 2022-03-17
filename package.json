@@ -1,6 +1,6 @@
 {
   "name": "perigress",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "main": "perigress.js",
   "devDependencies": {
     "chai": "^4.3.6",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "app-term-kit": "^0.4.2",
-    "country-list-json": "^1.0.7",
+    "async-arrays": "^1.0.1",
     "express": "^4.17.3",
     "joi-to-json": "^2.2.0",
     "json-schema-faker": "^0.5.0-rcv.42",
@@ -23,6 +23,6 @@
     "object-hash": "^3.0.0",
     "seed-random": "^2.2.0",
     "to-json-schema": "^0.2.5",
-    "well-known-regex": "0.0.1"
+    "well-known-regex": "0.0.2"
   }
 }
