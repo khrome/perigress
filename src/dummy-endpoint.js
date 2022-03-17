@@ -23,6 +23,7 @@ const DummyEndpoint = function(options, api){
     if(this.options.spec && !this.options.name){
         this.options.name = this.options.spec.split('.').shift();
     }
+    if(!this.options.primaryKey) this.options.primaryKey = 'id';
     //this.config = api.config(this.options.path);
     this.api = api;
     //this.config = api.config();
@@ -67,6 +68,52 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     // TODO: make saving work
     let instances = {};
     let ob = this;
+
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/list`, (req, res)=>{
+        let seeds = [];
+        let gen = makeGenerator('3c38adefd2f5bf4');
+        let idGen = null;
+        if(this.schema.properties[this.options.primaryKey].type === 'string'){
+            idGen = ()=>{
+                let value = gen.randomString(30);
+                return value;
+            }
+        }
+        if(this.schema.properties[this.options.primaryKey].type === 'number'){
+            idGen = ()=>{
+                return gen.randomInt(0, 10000);
+            }
+        }
+        let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
+        for(let lcv=0; lcv < length; lcv++){
+            seeds.push(idGen());
+        }
+        let items = [];
+        arrays.forEachEmission(seeds, (seed, index, done)=>{
+            this.generate(seed, (err, generated)=>{
+                generated[this.options.primaryKey] = seed;
+                items[index] = generated;
+                done();
+            });
+        }, ()=>{
+            res.send(JSON.stringify(items, null, '    '))
+        });
+    });
+
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/create`, (req, res)=>{
+        res.send('hello world')
+    });
+
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/:id/edit`, (req, res)=>{
+        res.send('hello world')
+    });
+
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](`${urlPath}/:id`, (req, res)=>{
@@ -75,22 +122,6 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         this.generate(req.params.id, (err, generated)=>{
             res.send(JSON.stringify(generated, null, '    '))
         });
-    });
-    expressInstance[
-        this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:id/edit`, (req, res)=>{
-        res.send('hello world')
-    });
-    expressInstance[
-        this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/list`, (req, res)=>{
-        res.send('hello world')
-    });
-
-    expressInstance[
-        this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/create`, (req, res)=>{
-        res.send('hello world')
     });
 }
 

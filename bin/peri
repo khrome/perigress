@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 const CLApp = require('app-term-kit');
+const express = require('express');
 const Perigress = require('../perigress');
 
 
@@ -14,7 +15,7 @@ let app = new CLApp('perigress', {
 });
 
 app.command({
-    name : 'server',
+    name : 'serve',
     description: 'Run a server from a definition',
     examples : [
         [
@@ -23,8 +24,18 @@ app.command({
         ]
     ],
     action : function(argv, target, complete){
-        //let path =
-        //
+        const port = argv.port || 8080;
+        const app = express();
+        const api = new Perigress.DummyAPI({
+            subpath : target,
+            dir: process.cwd()
+        });
+        api.ready.then(()=>{
+            api.attach(app);
+            const server = app.listen(port, ()=>{
+                console.log('Perigress Server running on '+port);
+            });
+        });
     }
 });
 
@@ -107,6 +118,7 @@ app.command({
 
 app.argument('api', 'string', 'Path to the directory defining the API', 1);
 app.argument('sequelize', 'string', 'Output sequelize scripts for data definitions', 1);
+app.argument('port', 'number', 'port to run the server on', 1);
 app.argument('sql', 'boolean', 'Output raw SQL for data definitions', 0);
 app.argument('seperate', 'boolean', 'Spit data model into multiple files', 0);
 

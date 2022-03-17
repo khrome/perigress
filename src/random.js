@@ -1,4 +1,5 @@
 const rand = require('seed-random');
+const hash = require('object-hash');
 
 const Random = {
     seed : function(seed){
@@ -20,6 +21,13 @@ const makeGenerator = (seed) => {
     let gen = Random.seed(Random.numSeed(seed));
     gen.randomInt = (from, to)=>{
         return randomInt(from, to, gen);
+    };
+    gen.randomString = (length)=>{
+        can = '';
+        while(can.length < length){
+            can += hash(gen.randomInt(0, 999999));
+        }
+        return can.substring(0, length);
     };
     return gen;
 }
