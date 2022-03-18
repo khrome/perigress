@@ -107,24 +107,6 @@ peri generate-data ./test/api transaction my-seed-value
 
 The DummyAPI uses a directory structure and a series of either [joi validators](https://joi.dev/)(.spec.js), [JSON Schema](https://json-schema.org/)(.spec.schema.js), or example [JSON](https://json.org/example.html)(.spec.json) files to represent the structure of the API URLs.
 
-given:
-```
-└── v1
-   ├── error.spec.js
-   ├── resultSet.spec.js
-   ├── transaction.spec.js
-   └── user.spec.js
-```
-
-you'll have the following endpoints:
-
-- `/v1/user/:id`
-- `/v1/user/:id/edit`
-- `/v1/user/list`
-- `/v1/transaction/:id`
-- `/v1/transaction/:id/edit`
-- `/v1/transaction/list`
-
 
 Using `DummyEndpoint`
 --------------------
