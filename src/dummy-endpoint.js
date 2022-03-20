@@ -37,10 +37,26 @@ DummyEndpoint.prototype.cleanupOptions = function(options){
     }
 }
 
+DummyEndpoint.prototype.cleanedSchema = function(schema){
+    let copy = JSON.parse(JSON.stringify(schema));
+    (Object.keys(copy.properties)).forEach((key)=>{
+        if(copy.properties[key] && copy.properties[key].pattern){
+            copy.properties[key].pattern = copy.properties[key].pattern.replace(/\?<[A-Za-z][A-Za-z0-9]*>/g, '')
+        }
+        if(!copy.properties[key]){
+            process.exit();
+        }
+        //TODO: object, array support
+    });
+    return copy;
+}
+
 DummyEndpoint.prototype.generate = function(id, cb){
     let gen = makeGenerator(id);
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
-    jsonSchemaFaker.resolve(this.schema, [], process.cwd()).then((value)=>{
+    // JSF's underlying randexp barfs on named capture groups, which we care about
+    let cleaned = this.cleanedSchema(this.schema);
+    jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((value)=>{
         if(value.id) value.id = id;
         let generated;
         try{
@@ -56,7 +72,7 @@ DummyEndpoint.prototype.generate = function(id, cb){
         });
         cb(null, value);
     }).catch((ex)=>{
-
+        console.log(ex);
     });
 }
 

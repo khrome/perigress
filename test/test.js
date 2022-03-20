@@ -7,7 +7,7 @@ const request = require('postman-request');
 const port = 8080;
 
 describe('perigress', ()=>{
-    describe('loads an API', ()=>{
+    describe('Works with a simple API', ()=>{
         it('loads the demo API', (done)=>{
             const app = express();
             const api = new Perigress.DummyAPI({
@@ -62,5 +62,50 @@ describe('perigress', ()=>{
             });
         });
 
-    })
+    });
+
+    describe('works using well-known-regex overlay', ()=>{
+
+        it('runs the demo API and requests a consistent object', (done)=>{
+            const app = express();
+            const api = new Perigress.DummyAPI({
+                subpath : 'wkr-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/1`,
+                        method: 'POST'
+                    }, (err, res, body)=>{
+                        should.not.exist(err);
+                        try{
+                            let user = JSON.parse(body);
+                            let joiSchema = require(path.join(
+                                __dirname, 'api', 'v1', 'user.spec.js'
+                            ));
+                            let valid = joiSchema.validate(user);
+                            (!!valid).should.equal(true);
+                            user.firstName.should.equal('Sim');
+                            user.lastName.should.equal('Ruecker');
+                            user.email.should.equal('Jared_Franey19@gmail.com');
+                            user.phone.should.equal('009-732-4917');
+                            user.birthday.should.equal('1952-06-15T07:00:00.0Z');
+                            should.not.exist(valid.error);
+                            server.close(()=>{
+                                done();
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            should.not.exist(ex);
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+
+    });
 })

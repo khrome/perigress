@@ -23,6 +23,6 @@
     "object-hash": "^3.0.0",
     "seed-random": "^2.2.0",
     "to-json-schema": "^0.2.5",
-    "well-known-regex": "0.0.2"
+    "well-known-regex": "0.0.3"
   }
 }
