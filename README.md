@@ -12,10 +12,10 @@ The ultimate goal of this library is to generate fully functional and tested bac
 Only a single file is required to generate a test api, and that's the schema of the object you want to generate. That might be as simple as:
 
 ```bash
-    mkdir verifiers
-    mkdir verifiers/api
-    cp ../existing_joi_user_definition.js verifiers/api/user.spec.js
-    # OR cp ../existing_json-schema_user_definition.js verifiers/api/user.spec.schema.js
+mkdir verifiers
+mkdir verifiers/api
+cp ../joi_user_definition.js verifiers/api/user.spec.js # OR
+# cp ../json-schema_user.js verifiers/api/user.spec.schema.js
 ```
 
 
@@ -50,7 +50,7 @@ You can generate data definitions(SQL, Data Model) based on your endpoint contra
 
 - [SQL + db-migrate](docs/sql-db-migrate.md)
 - [Sequelize](docs/sequelize.md)
-- [Mongo](docs/mongo.md)
+- [Mongo](docs/mongo.md)<sup>TBD</sup>
 
 
 ### 4. Generate DB seed files
@@ -59,7 +59,7 @@ You can generate consistent fake data to load into your database without having 
 
 - [SQL + db-migrate](docs/sql-db-migrate-insert.md)
 - [Sequelize](docs/sequelize-insert.md)
-- [Mongo](docs/mongo-insert.md)
+- [Mongo](docs/mongo-insert.md)<sup>TBD</sup>
 
 ### 5. Generate migrations
 
@@ -67,7 +67,7 @@ Finally, because you can compute the difference between schema, you can also gen
 
 - [SQL + db-migrate](docs/sql-db-migrate-migration.md)
 - [Sequelize](docs/sequelize-migration.md)
-- [Mongo](docs/mongo-migration.md)
+- [Mongo](docs/mongo-migration.md)<sup>TBD</sup>
 
 Roadmap
 -------
