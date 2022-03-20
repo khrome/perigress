@@ -22,7 +22,7 @@ graph LR
     root --> 4[v1]
     subgraph 4g[object endpoints]
         4 --> 21[user.spec.js]
-        4 --> 21[transaction.spec.js]
+        4 --> 22[transaction.spec.js]
     end
     subgraph 1g[root endpoint config]
         1
