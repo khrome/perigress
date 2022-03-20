@@ -26,9 +26,12 @@ const DummyAPI = function(dir){
     }, 0);
 }
 
-DummyAPI.prototype.attach = function(instance){
-    this.endpoints.forEach((endpoint)=>{
-        endpoint.attach(instance);
+DummyAPI.prototype.attach = function(instance, cb){
+    this.ready.then(()=>{
+        this.endpoints.forEach((endpoint)=>{
+            endpoint.attach(instance);
+        });
+        if(cb) cb();
     });
 }
 

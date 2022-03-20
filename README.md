@@ -1,143 +1,78 @@
 Perigress
 =========
 
-Going around the problem of where to start.
+A medium for contract based development.
 
-Data maintenance, contract testing and data generation without boilerplate. This started as [an experiment](https://github.com/khrome/joinerator) with [joi](https://joi.dev/) to see if it were possible to generate a reasonable, consistent data, but then I became aware of a slightly different approach that could provide even better functionality with much less surface using [json-schema](https://json-schema.org/), but still support joi.
+Data maintenance, contract testing and data generation without boilerplate using a series of either [joi validators](https://joi.dev/)(.spec.js), [JSON Schema](https://json-schema.org/)(.spec.schema.js), or example [JSON](https://json.org/example.html)(.spec.json) files to represent the structure of the API URLs(which you are probably **already** writing). This started as [an experiment](https://github.com/khrome/joinerator) with [joi](https://joi.dev/) to see if it were possible to generate a reasonable, [coherent + consistent](docs/coherent-consistent.md) data, but then I realized using [json-schema](https://json-schema.org/) could still support joi, but also many other features and pipelines.
 
 The ultimate goal of this library is to generate fully functional and tested backends, mocks, seeds and migrations from nothing more than a set of schema.
 
-### coherant + consistent
+### 1. Setup the directory layout
 
-The output data is "coherent". By that we mean: for [well known regexs](https://www.npmjs.com/package/well-known-regex), the generated data is consistent between fields in an object, in addition lists are coherent with individual item displays( they have the same data, both in a list and when requested directly) and, last, the data is consistent, meaning the same request will always generate the same output(excepting behavior changes between major versions).
-
-### layout
-
-Perigress (in most cases) uses a directory which mirrors the path of the endpoints. For example, given:
-```mermaid
-graph LR
-    root[root] --> 1[config.js]
-    root --> 2[resultSet.spec.js]
-    root --> 3[error.spec.js]
-    root --> 4[v1]
-    subgraph 4g[object endpoints]
-        4 --> 21[user.spec.js]
-        4 --> 22[transaction.spec.js]
-    end
-    subgraph 1g[root endpoint config]
-        1
-    end
-    subgraph 2g[root return structure]
-        2
-    end
-    subgraph 3g[root error structure]
-        3
-    end
-
-linkStyle 0,1,2,3,4 stroke-width:1px;
-
-style 1g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
-style 2g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
-style 3g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
-style 4g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
-```
-
-you'll have the following endpoints:
-
-- `/v1/user/:id`
-- `/v1/user/:id/edit`
-- `/v1/user/list`
-- `/v1/transaction/:id`
-- `/v1/transaction/:id/edit`
-- `/v1/transaction/list`
-
-
-Command Line
-------------
-
-<table>
-    <tr>
-        <td><details><summary> <b>SQL+db-migrate</b> </summary><p>
-
-let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
+Only a single file is required to generate a test api, and that's the schema of the object you want to generate. That might be as simple as:
 
 ```bash
-    # first configure db-migrate by setting up your `database.json` config
-    peri generate-tables ./data/validators --sql > ./data/migrations/1647316034481982946-create-up.sql
-    db-migrate up 1647316034481982946-create --sql-file
-    cp -R ./data/validators ./.lastMigration
-
-    # now forget about it until you change the data again, after which you run
-    peri generate-migration ./data/validators ./.lastMigration --sql up > ./data/migrations/1647317213970350981-update-up.sql
-    peri generate-migration ./data/validators ./.lastMigration --sql down > ./data/migrations/1647317213970350981-update-down.sql
-    db-migrate up 1647317213970350981-update --sql-file
-    # once you make the new migration, save the current state
-    rm -Rf ./.lastMigration
-    cp -R ./data/validators ./.lastMigration
+    mkdir verifiers
+    mkdir verifiers/api
+    cp ../existing_joi_user_definition.js verifiers/api/user.spec.js
+    # OR cp ../existing_json-schema_user_definition.js verifiers/api/user.spec.schema.js
 ```
 
-</p></details></td></tr><tr>
-<td><details><summary> <b>Sequelize</b> </summary><p>
 
+More complex options are described in the [detailed setup document](docs/directory-layout.md).
 
-let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
+### 2. Use the mock in testing
+
+You can launch the mock on the command line:
 
 ```bash
-    # first configure db-migrate by setting up your `database.json` config
-    peri generate-tables ./data/validators --sequelize="`./src/sequelize`" > ./data/models.js
-    node -e "require('./data/models'); require('./src/sequelize').sync()"
-    cp -R ./data/validators ./.lastMigration
-
-    # now forget about it until you change the data again, after which you run
-    peri generate-migration ./data/validators ./.lastMigration --sequelize=true > ./data/migrations/1647317213970350981-update.js
-    sequelize db:migrate
-    # once you make the new migration, save the current state
-    rm -Rf ./.lastMigration
-    cp -R ./data/validators ./.lastMigration
+# use ./node_modules/perigress/bin/peri if you don't have a global `peri`
+peri serve ./verifiers --port 8080
+#in another terminal:
+open "http://localhost:8080/v1/user/list"
 ```
 
-</p></details></td></tr><tr>
-<td><details><summary> <b>Mongo</b> </summary><p>
+You can also launch the server within your code:
 
+```javascript
+const { DummyAPI } = require('perigress');
+const api = new DummyAPI({
+    subpath : 'api-directory',
+    dir: __dirname
+});
+api.attach(expressInstance);
 
-let's assume you have a set of validators in `./data/validators`... here's how you might handle working with the data:
-
-```bash
-    # TBD
 ```
 
-</p></details></td></tr>
-</table>
+### 3. Generate data definitions
 
-Launch a server:
+You can generate data definitions(SQL, Data Model) based on your endpoint contract.
 
-```bash
-peri serve ./test/api
-```
-
-
-Generate some fake data using the `transaction` definition.
-
-```bash
-peri generate-data ./test/api transaction my-seed-value
-```
-
-`Perigress.DummyAPI`
---------------------
-
-The DummyAPI uses a directory structure and a series of either [joi validators](https://joi.dev/)(.spec.js), [JSON Schema](https://json-schema.org/)(.spec.schema.js), or example [JSON](https://json.org/example.html)(.spec.json) files to represent the structure of the API URLs.
+- [SQL + db-migrate](docs/sql-db-migrate.md)
+- [Sequelize](docs/sequelize.md)
+- [Mongo](docs/mongo.md)
 
 
-Using `DummyEndpoint`
---------------------
+### 4. Generate DB seed files
 
-Docs TBD
+You can generate consistent fake data to load into your database without having to be paranoid about sanitizing the dev DB (or having to update seed scripts by hand every single time the DB structure is altered).
 
+- [SQL + db-migrate](docs/sql-db-migrate-insert.md)
+- [Sequelize](docs/sequelize-insert.md)
+- [Mongo](docs/mongo-insert.md)
+
+### 5. Generate migrations
+
+Finally, because you can compute the difference between schema, you can also generate migrations for sets of changes of your data definitions.
+
+- [SQL + db-migrate](docs/sql-db-migrate-migration.md)
+- [Sequelize](docs/sequelize-migration.md)
+- [Mongo](docs/mongo-migration.md)
 
 Roadmap
 -------
 
-- [ ] - list output
+- [x] - list output
 - [ ] - primary key support
 - [ ] - audit columns
 - [ ] - edit support (ephemeral)
