@@ -20,17 +20,17 @@ graph LR
     root --> 2[resultSet.spec.js]
     root --> 3[error.spec.js]
     root --> 4[v1]
-    subgraph 4g[the object endpoints]
+    subgraph 4g[object endpoints]
         4 --> 21[user.spec.js]
         4 --> 21[transaction.spec.js]
     end
-    subgraph 1g[the root endpoint config]
+    subgraph 1g[root endpoint config]
         1
     end
-    subgraph 2g[the endpoint return structure]
+    subgraph 2g[root return structure]
         2
     end
-    subgraph 3g[the endpoint error structure]
+    subgraph 3g[root error structure]
         3
     end
 
