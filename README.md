@@ -15,6 +15,7 @@ The output data is "coherent". By that we mean: for [well known regexs](https://
 
 Perigress (in most cases) uses a directory which mirrors the path of the endpoints. For example, given:
 ```mermaid
+graph LR
     root[root] --> 1[config.js]
     root --> 2[resultSet.spec.js]
     root --> 3[error.spec.js]
