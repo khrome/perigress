@@ -1,6 +1,6 @@
 {
   "name": "perigress",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "main": "perigress.js",
   "devDependencies": {
     "chai": "^4.3.6",
@@ -23,6 +23,6 @@
     "object-hash": "^3.0.0",
     "seed-random": "^2.2.0",
     "to-json-schema": "^0.2.5",
-    "well-known-regex": "0.0.3"
+    "well-known-regex": "0.0.6"
   }
 }

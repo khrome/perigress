@@ -14,12 +14,31 @@ The output data is "coherent". By that we mean: for [well known regexs](https://
 ### layout
 
 Perigress (in most cases) uses a directory which mirrors the path of the endpoints. For example, given:
-```
-└── v1
-   ├── error.spec.js
-   ├── resultSet.spec.js
-   ├── transaction.spec.js
-   └── user.spec.js
+```mermaid
+    root[root] --> 1[config.js]
+    root --> 2[resultSet.spec.js]
+    root --> 3[error.spec.js]
+    root --> 4[v1]
+    subgraph 4g[the object endpoints]
+        4 --> 21[user.spec.js]
+        4 --> 21[transaction.spec.js]
+    end
+    subgraph 1g[the root endpoint config]
+        1
+    end
+    subgraph 2g[the endpoint return structure]
+        2
+    end
+    subgraph 3g[the endpoint error structure]
+        3
+    end
+
+linkStyle 0,1,2,3,4 stroke-width:1px;
+
+style 1g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
+style 2g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
+style 3g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
+style 4g fill:transparent, stroke:#E5E5E5, stroke-width: 1px, stroke-dasharray:5;
 ```
 
 you'll have the following endpoints:

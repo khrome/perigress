@@ -57,7 +57,17 @@ DummyEndpoint.prototype.generate = function(id, cb){
     // JSF's underlying randexp barfs on named capture groups, which we care about
     let cleaned = this.cleanedSchema(this.schema);
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((value)=>{
-        if(value.id) value.id = id;
+        if(this.schema.properties.id && value.id){
+            switch(this.schema.properties.id.type){
+                case 'integer':
+                    value.id = parseInt(id);
+                    break
+                case 'string':
+                    value.id = id;
+                    break;
+                default : throw new Error('Cannot create a primary key with type:'+this.schema.properties.id.type)
+            }
+        }
         let generated;
         try{
             generated = generateData(this.schema, {

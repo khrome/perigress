@@ -83,22 +83,23 @@ describe('perigress', ()=>{
                         try{
                             let user = JSON.parse(body);
                             let joiSchema = require(path.join(
-                                __dirname, 'api', 'v1', 'user.spec.js'
+                                __dirname, 'wkr-api', 'v1', 'user.spec.js'
                             ));
                             let valid = joiSchema.validate(user);
                             (!!valid).should.equal(true);
+                            user.id.should.equal(1);
                             user.firstName.should.equal('Sim');
                             user.lastName.should.equal('Ruecker');
                             user.email.should.equal('Jared_Franey19@gmail.com');
-                            user.phone.should.equal('009-732-4917');
-                            user.birthday.should.equal('1952-06-15T07:00:00.0Z');
+                            user.phone.should.equal('520-674-9557');
+                            user.birthday.should.equal('1975-08-28T06:00:00.0Z');
                             should.not.exist(valid.error);
                             server.close(()=>{
                                 done();
                             });
                         }catch(ex){
                             console.log(ex)
-                            should.not.exist(ex);
+                            throw ex;
                         }
                     });
                 });
