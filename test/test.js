@@ -92,7 +92,7 @@ describe('perigress', ()=>{
                             user.lastName.should.equal('Ruecker');
                             user.email.should.equal('Jared_Franey19@gmail.com');
                             user.phone.should.equal('520-674-9557');
-                            user.birthday.should.equal('1975-08-28T06:00:00.0Z');
+                            user.birthday.should.equal('1975-08-30T06:00:00.0Z');
                             should.not.exist(valid.error);
                             server.close(()=>{
                                 done();
@@ -109,4 +109,58 @@ describe('perigress', ()=>{
         });
 
     });
-})
+
+    describe('works using a paging API', ()=>{
+
+        it('runs the demo API and requests a consistent object', (done)=>{
+            const app = express();
+            const api = new Perigress.DummyAPI({
+                subpath : 'paged-wkr-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method: 'POST'
+                    }, (err, res, body)=>{
+                        should.not.exist(err);
+                        try{
+                            let result = JSON.parse(body);
+                            let joiSchema = require(path.join(
+                                __dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+                            ));
+                            should.exist(result);
+                            should.exist(result.status);
+                            result.status.toLowerCase().should.equal('success');
+                            should.exist(result.results);
+                            Array.isArray(result.results).should.equal(true);
+                            should.exist(result.results[0]);
+                            should.exist(result.results[0].id);
+                            should.exist(result.results[0].firstName);
+                            should.exist(result.results[0].lastName);
+                            should.exist(result.results[0].email);
+                            should.exist(result.results[0].phone);
+                            should.exist(result.results[0].birthday);
+                            result.results.forEach((res)=>{
+                                let valid = joiSchema.validate(res);
+                                (!!valid).should.equal(true);
+                                should.not.exist(valid.error);
+                            });
+                            server.close(()=>{
+                                done();
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+
+    });
+});

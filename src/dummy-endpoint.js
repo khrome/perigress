@@ -1,4 +1,5 @@
 const ks = require('kitchen-sync');
+const access = require('object-accessor');
 const arrays = require('async-arrays');
 const jsonToJSONSchema = require('to-json-schema');
 const joiToJSONSchema = require('joi-to-json')
@@ -23,7 +24,6 @@ const DummyEndpoint = function(options, api){
     if(this.options.spec && !this.options.name){
         this.options.name = this.options.spec.split('.').shift();
     }
-    if(!this.options.primaryKey) this.options.primaryKey = 'id';
     //this.config = api.config(this.options.path);
     this.api = api;
     //this.config = api.config();
@@ -37,7 +37,11 @@ DummyEndpoint.prototype.cleanupOptions = function(options){
     }
 }
 
-DummyEndpoint.prototype.cleanedSchema = function(schema){
+DummyEndpoint.prototype.cleanedSchema = function(s){
+    let schema = s;
+    if(schema.type === 'object' && schema['$_root']){ //this is a joi def
+        schema = joiToJSONSchema(schema);
+    }
     let copy = JSON.parse(JSON.stringify(schema));
     (Object.keys(copy.properties)).forEach((key)=>{
         if(copy.properties[key] && copy.properties[key].pattern){
@@ -52,20 +56,23 @@ DummyEndpoint.prototype.cleanedSchema = function(schema){
 }
 
 DummyEndpoint.prototype.generate = function(id, cb){
-    let gen = makeGenerator(id);
+    let gen = makeGenerator(id+'');
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     // JSF's underlying randexp barfs on named capture groups, which we care about
     let cleaned = this.cleanedSchema(this.schema);
+    let config = this.config();
+    //TODO: make default come from datasource
+    let primaryKey = config.primaryKey || 'id';
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((value)=>{
-        if(this.schema.properties.id && value.id){
-            switch(this.schema.properties.id.type){
+        if(this.schema.properties[primaryKey] && value[primaryKey]){
+            switch(this.schema.properties[primaryKey].type){
                 case 'integer':
-                    value.id = parseInt(id);
+                    value[primaryKey] = parseInt(id);
                     break
                 case 'string':
-                    value.id = id;
+                    value[primaryKey] = id;
                     break;
-                default : throw new Error('Cannot create a primary key with type:'+this.schema.properties.id.type)
+                default : throw new Error('Cannot create a primary key with type:'+this.schema.properties[primaryKey].type)
             }
         }
         let generated;
@@ -86,6 +93,76 @@ DummyEndpoint.prototype.generate = function(id, cb){
     });
 }
 
+const handleListPage = (ob, pageNumber, req, res, urlPath)=>{
+    let seeds = [];
+    let gen = makeGenerator('3c38adefd2f5bf4');
+    let idGen = null;
+    let config = ob.config();
+    //TODO: make default come from datasource
+    let primaryKey = config.primaryKey || 'id';
+    if(ob.schema.properties[primaryKey].type === 'string'){
+        idGen = ()=>{
+            let value = gen.randomString(30);
+            return value;
+        }
+    }
+    if(
+        ob.schema.properties[primaryKey].type === 'number' ||
+        ob.schema.properties[primaryKey].type === 'integer'
+    ){
+        idGen = ()=>{
+            return gen.randomInt(0, 10000);
+        }
+    }
+    let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
+    for(let lcv=0; lcv < length; lcv++){
+        seeds.push(idGen());
+    }
+    let items = [];
+    jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
+    let resultSpec = ob.resultSpec();
+    let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
+    jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
+        if(config.total){
+            access.set(returnValue, config.total, seeds.length);
+        }
+        if(config.page){
+            let size = config.defaultSize || 30;
+            let pageFrom0 = pageNumber - 1;
+            let offset = pageFrom0 * size;
+            let count = Math.ceil(seeds.length/size);
+            if(config.page.size){
+                access.set(returnValue, config.page.size, size);
+            }
+            if(config.page.count){
+                access.set(returnValue, config.page.count, count);
+            }
+            if(config.page.next && pageNumber < count){
+                access.set(returnValue, config.page.next, urlPath+'/list/'+(pageNumber+1));
+            }
+            if(config.page.previous && pageNumber > 1){
+                access.set(returnValue, config.page.previous, urlPath+'/list/'+(pageNumber-1));
+            }
+            if(config.page.number){
+                access.set(returnValue, config.page.number, pageNumber);
+            }
+            seeds = seeds.slice(offset, offset+size);
+        }
+        arrays.forEachEmission(seeds, (seed, index, done)=>{
+            ob.generate(seed, (err, generated)=>{
+                generated[primaryKey] = seed;
+                items[index] = generated;
+                done();
+            });
+        }, ()=>{
+            access.set(returnValue, resultSpec.resultSetLocation, items);
+            res.send(JSON.stringify(returnValue, null, '    '))
+        });
+    }).catch((ex)=>{
+
+    });
+};
+
 DummyEndpoint.prototype.attach = function(expressInstance){
     let prefix = this.options.path.substring(
         path.join(this.options.root, this.options.subpath).length
@@ -98,34 +175,13 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](`${urlPath}/list`, (req, res)=>{
-        let seeds = [];
-        let gen = makeGenerator('3c38adefd2f5bf4');
-        let idGen = null;
-        if(this.schema.properties[this.options.primaryKey].type === 'string'){
-            idGen = ()=>{
-                let value = gen.randomString(30);
-                return value;
-            }
-        }
-        if(this.schema.properties[this.options.primaryKey].type === 'number'){
-            idGen = ()=>{
-                return gen.randomInt(0, 10000);
-            }
-        }
-        let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
-        for(let lcv=0; lcv < length; lcv++){
-            seeds.push(idGen());
-        }
-        let items = [];
-        arrays.forEachEmission(seeds, (seed, index, done)=>{
-            this.generate(seed, (err, generated)=>{
-                generated[this.options.primaryKey] = seed;
-                items[index] = generated;
-                done();
-            });
-        }, ()=>{
-            res.send(JSON.stringify(items, null, '    '))
-        });
+        handleListPage(this, 1, req, res, urlPath);
+    });
+
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](`${urlPath}/list/:pageNumber`, (req, res)=>{
+        handleListPage(this, parseInt(req.params.pageNumber), req, res, urlPath);
     });
 
     expressInstance[
@@ -143,24 +199,24 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](`${urlPath}/:id`, (req, res)=>{
-        // TODO: consistency
-        // TODO: coherence
-        this.generate(req.params.id, (err, generated)=>{
+        let config = this.config();
+        let primaryKey = config.primaryKey || 'id';
+        this.generate(req.params[primaryKey], (err, generated)=>{
             res.send(JSON.stringify(generated, null, '    '))
         });
     });
 }
 
 DummyEndpoint.prototype.config = function(){
-    this.api.config(this.options.path);
+    return this.api.config(this.options.path);
 }
 
-DummyEndpoint.prototype.config = function(){
-    this.api.errorSpec(this.options.path);
+DummyEndpoint.prototype.errorSpec = function(){
+    return this.api.errorSpec(this.options.path);
 }
 
-DummyEndpoint.prototype.config = function(){
-    this.api.resultSpec(this.options.path);
+DummyEndpoint.prototype.resultSpec = function(){
+    return this.api.resultSpec(this.options.path);
 }
 
 DummyEndpoint.prototype.loadSchema = function(filePath, extension, callback){

@@ -11,6 +11,9 @@
   "bin": {
     "peri": "./bin/peri"
   },
+  "scripts": {
+    "sample-sequelize-create": "./bin/peri generate-tables ./test/wkr-api --sequelize ../sequelize"
+  },
   "dependencies": {
     "app-term-kit": "^0.4.2",
     "async-arrays": "^1.0.1",
@@ -20,9 +23,10 @@
     "json-schema2sequelize": "0.0.1",
     "json-schema2sql": "0.0.1",
     "kitchen-sync": "0.0.1",
+    "object-accessor": "0.0.1",
     "object-hash": "^3.0.0",
     "seed-random": "^2.2.0",
     "to-json-schema": "^0.2.5",
-    "well-known-regex": "0.0.6"
+    "well-known-regex": "0.0.7"
   }
 }

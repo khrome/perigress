@@ -2,10 +2,17 @@ const ks = require('kitchen-sync');
 const arrays = require('async-arrays');
 const fs = require('fs');
 const path = require('path');
+const hash = require('object-hash');
 const { toSQL, toSQLUpdates } = require('json-schema2sql');
 const sequelize = require('json-schema2sequelize');
 
 const DummyEndpoint = require('./dummy-endpoint');
+
+const writeInto = (ob, values)=>{
+    Object.keys(values).forEach((key)=>{
+        ob[key] = values[key];
+    })
+};
 
 
 const DummyAPI = function(dir){
@@ -40,8 +47,9 @@ const getLeastGeneralPathMatch = (index, path)=>{
     let thisPath = path.join('/');
     if(index[thisPath]) return index[thisPath];
     if(!path.length) return null;
+    //do next match
     path.pop();
-    return getLeastGeneralPathMatch(path)
+    return getLeastGeneralPathMatch(index, path)
 }
 
 DummyAPI.prototype.resultSpec = function(dir){
@@ -155,7 +163,7 @@ DummyAPI.prototype.errorSpec = function(dir){
 }
 
 DummyAPI.prototype.config = function(dir){
-    return getLeastGeneralPathMatch(this.configs, dir);
+    return getLeastGeneralPathMatch(this.configSpecs, dir);
 }
 
 DummyAPI.prototype.load = function(dir, cb){
@@ -176,10 +184,10 @@ DummyAPI.prototype.load = function(dir, cb){
     })]);
     this.scan(directory, (err, specs, resultsIndex, errorIndex, configIndex)=>{
         if(err) return console.log(err);
-        this.resultSpecs = resultsIndex;
-        this.errorSpecs = errorIndex;
-        this.configSpecs = configIndex;
-        if(!specs) throw new Error('ack '+directory)
+        writeInto(this.resultSpecs, resultsIndex);
+        writeInto(this.errorSpecs, errorIndex);
+        writeInto(this.configSpecs, configIndex);
+        if(!specs) throw new Error('ack '+directory);
         arrays.forEachEmission(specs, (spec, index, emit)=>{
             let parts = spec.spec.split('.');
             let name = parts.shift();
@@ -201,21 +209,29 @@ DummyAPI.prototype.load = function(dir, cb){
 
 };
 
-DummyAPI.prototype.scan = function(directory, cb, incomingSpecs){
+DummyAPI.prototype.scan = function(directory, cb, incomingSpecs, iResults, iErrors, iConfig){
     const callback = ks(cb);
+    let resultSpecs = iResults || {};
+    let errorSpecs = iErrors || {};
+    let configSpecs = iConfig || {};
     fs.readdir(directory, (err, result)=>{
         if(err || (!result) || !result.length) return cb();
-        let resultSpecs = {};
-        let errorSpecs = {};
-        let configSpecs = {};
         let specs = incomingSpecs || [];
         arrays.forEachEmission(result, (item, index, done)=>{
             let itemPath = path.join(directory, item);
             fs.stat(itemPath, (err, stat)=>{
                 if(stat.isDirectory()){
-                    this.scan(itemPath, ()=>{
+                    this.scan(itemPath, (err, incomingSpecs, results, errors, configs)=>{
+                        let hashes = specs.map(s => hash(s));
+                        /*specs = incomingSpecs.reduce((res, item)=>{
+                            if(hashes.indexOf(hash(item)) !== -1) res.push(item);
+                            return res;
+                        }, specs);
+                        writeInto(resultSpecs, results);
+                        writeInto(errorSpecs, errors);
+                        writeInto(configSpecs, configs);*/
                         done();
-                    }, specs)
+                    }, specs, resultSpecs, errorSpecs, configSpecs)
                 }else{
                     let fixedPath = itemPath[0] === '/'?itemPath:path.join(process.cwd(), itemPath);
                     if(item === 'resultSet.spec.js'){
