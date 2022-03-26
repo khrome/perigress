@@ -101,12 +101,18 @@ app.command({
         let incoming = (argv._.shift()).trim();
         let id = (argv._.shift() || '').trim();
         let perigress = new Perigress.DummyAPI(path);
+        let format = 'sql';
+        if(argv.sequelize) format = 'sequelize';
+        if(argv.mongo) format = 'mongo';
         perigress.ready.then(()=>{
             let e = perigress.endpoints.find((e)=> e.options.name === incoming);
             if(e){
                 let num = (id || Math.random()+'');
-                e.generate(num, (err, result)=>{
-                    console.log(JSON.stringify(result, null, '    '));
+                e.generate(num, {
+                    format
+                }, (err, result)=>{
+                    let finalResult = e.formatItems({format}, result);
+                    console.log(finalResult);
                     complete();
                 });
             }else{

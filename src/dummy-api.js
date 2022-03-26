@@ -128,51 +128,6 @@ DummyAPI.prototype.generateDataDefinitions = function(options, cb){
             );
             cb(null, formattedFile)
         });
-        /*if((!options.format) || options.format.toLowerCase() === 'sql'){
-            let tableDefinitions = [];
-            arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
-                let statements = toSQL(endpoint.options.name, endpoint.schema);
-                tableDefinitions = tableDefinitions.concat(statements);
-                //TODO: write definitions if output option is set
-                done();
-            }, ()=>{
-                cb(null, tableDefinitions.join(";\n")+';')
-            });
-            return;
-        }
-        if(options.format.toLowerCase() === 'sequelize'){
-            let tableDefinitions = [];
-            let include = `const { Sequelize, DataTypes, Model } = require('@sequelize/core');`;
-            include += `\nconst sequelize = require('${options.sequelizePath}');\n`
-            let exportText = `module.exports = ###;`
-            if(!options.seperate) tableDefinitions.push(include);
-            let names = [];
-            arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
-                let capName = endpoint.options.name.substring(0,1).toUpperCase()+
-                    endpoint.options.name.substring(1);
-                names.push(capName);
-                let statements = sequelize.toSequelize(endpoint.options.name, endpoint.schema, {
-                    primaryKey: options.primaryKey
-                });
-                if(options.seperate){
-                    statements = statements.map(
-                        (s)=>include+"\n"+s+"\n"+exportText.replace('###', capName)
-                    )
-                }
-                tableDefinitions = tableDefinitions.concat(statements);
-                done();
-            }, ()=>{
-                let result = options.seperate?tableDefinitions:tableDefinitions.join("\n")+'';
-                if(!options.seperate){
-                    result = result+"\n"+exportText.replace('###', `{${names.join(', ')}}`)
-                }
-                cb(null, result)
-            });
-            return;
-        }
-        setTimeout(()=>{
-            cb(new Error('Unknown format: '+options.format))
-        })*/
     });
 }
 

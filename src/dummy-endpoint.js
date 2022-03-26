@@ -51,7 +51,7 @@ DummyEndpoint.prototype.makeDataFileWrapper = function(opts, statements){
             let include = `const { Sequelize, DataTypes, Model } = require('@sequelize/core');`;
             include += `\nconst sequelize = require('${options.sequelizePath}');\n`
             let exportText = `module.exports = ###;`
-            result = statements.join("\n")+'';
+            result = include+statements.join("\n")+'';
             if(!options.seperate){
                 result = result+"\n"+exportText.replace('###', `{${exportNames.join(', ')}}`)
             }
@@ -70,13 +70,20 @@ DummyEndpoint.prototype.toDataDefinition = function(opts, names){
     let config = this.config();
     // TODO: switch to a plugin loader pattern
     let statements = null;
+    let isSerial = config.primaryKey?
+        [
+            'integer',
+            'number'
+        ].indexOf(this.schema.properties[config.primaryKey].type) !== -1:
+        false;
     switch((options.format||'').toLowerCase()){
         case 'sequelize':
             let capName = this.options.name.substring(0,1).toUpperCase()+
                 this.options.name.substring(1);
             if(names) names.push(capName);
             statements = sequelize.toSequelize(this.options.name, this.schema, {
-                primaryKey: config.primaryKey
+                primaryKey: config.primaryKey,
+                serial: isSerial
             });
             if(options.seperate){
                 statements = statements.map(
@@ -86,8 +93,48 @@ DummyEndpoint.prototype.toDataDefinition = function(opts, names){
             tableDefinitions = tableDefinitions.concat(statements);
             break;
         case 'sql':
-            statements = sql.toSQL(this.options.name, this.schema);
+            statements = sql.toSQL(this.options.name, this.schema, {
+                primaryKey: config.primaryKey,
+                serial: isSerial
+            });
             tableDefinitions = tableDefinitions.concat(statements);
+            break;
+        default: throw new Error('Unknown Type: \''+options.format+'\'');
+    }
+    return tableDefinitions;
+}
+
+DummyEndpoint.prototype.makeMigrationFileWrapper = function(opts, statements){
+    let options = opts || {format:'sql'};
+    let result = null;
+    let config = this.config();
+    // TODO: switch to a plugin loader pattern
+    let exportNames = opts.export || [ this.options.name.substring(0,1).toUpperCase()+
+        this.options.name.substring(1) ];
+    switch((options.format||'').toLowerCase()){
+        case 'sequelize':
+
+            break;
+        case 'sql':
+
+            break;
+        default: throw new Error('Unknown Type: '+options.format);
+    }
+    return result;
+}
+
+DummyEndpoint.prototype.toDataMigration = function(opts, names){
+    let options = opts || {format:'sql'};
+    let tableDefinitions = [];
+    let config = this.config();
+    // TODO: switch to a plugin loader pattern
+    let statements = null;
+    switch((options.format||'').toLowerCase()){
+        case 'sequelize':
+
+            break;
+        case 'sql':
+
             break;
         default: throw new Error('Unknown Type: \''+options.format+'\'');
     }
@@ -112,7 +159,28 @@ DummyEndpoint.prototype.cleanedSchema = function(s){
     return copy;
 }
 
-DummyEndpoint.prototype.generate = function(id, cb){
+DummyEndpoint.prototype.formatItems = function(opts, items){
+    let options = opts || {format:'sql'};
+    let result = null;
+    let config = this.config();
+    // TODO: switch to a plugin loader pattern
+    let exportNames = opts.export || [ this.options.name.substring(0,1).toUpperCase()+
+        this.options.name.substring(1) ];
+    switch((options.format||'').toLowerCase()){
+        case 'sequelize':
+            result = sequelize.toSequelizeInsert(this.options.name, items, {});
+            break;
+        case 'sql':
+            result = sql.toSQLInsert(this.options.name, items, {});
+            break;
+        default: throw new Error('Unknown Type: '+options.format);
+    }
+    return result;
+}
+
+DummyEndpoint.prototype.generate = function(id, o, c){
+    let cb = typeof o === 'function'?o:(typeof c === 'function'?c:()=>{});
+    let options = typeof o === 'object'?o:{};
     let gen = makeGenerator(id+'');
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     // JSF's underlying randexp barfs on named capture groups, which we care about

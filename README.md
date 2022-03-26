@@ -73,7 +73,7 @@ Roadmap
 -------
 
 - [x] - list output
-- [ ] - primary key support
+- [x] - primary key support
 - [ ] - audit columns
 - [ ] - edit support (ephemeral)
 - [ ] - example json support
