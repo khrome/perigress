@@ -1,6 +1,6 @@
 {
   "name": "perigress",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "main": "perigress.js",
   "devDependencies": {
     "chai": "^4.3.6",
@@ -12,7 +12,8 @@
     "peri": "./bin/peri"
   },
   "scripts": {
-    "sample-sequelize-create": "./bin/peri generate-tables ./test/wkr-api --sequelize ../sequelize"
+    "sample-sequelize-create": "./bin/peri generate-tables ./test/paged-wkr-api --sequelize ../sequelize",
+    "sample-sql-create": "./bin/peri generate-tables ./test/paged-wkr-api --sql"
   },
   "dependencies": {
     "app-term-kit": "^0.4.2",

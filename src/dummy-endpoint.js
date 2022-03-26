@@ -8,6 +8,8 @@ const { makeGenerator } = require('./random');
 const fs = require('fs');
 const path = require('path');
 const { WKR, classifyRegex, generateData } = require('well-known-regex');
+const sql = require('json-schema2sql');
+const sequelize = require('json-schema2sequelize');
 
 const defaults = {
     error : ()=>{
@@ -35,6 +37,61 @@ DummyEndpoint.prototype.cleanupOptions = function(options){
     if(!options.method){
         options.method = 'ALL';
     }
+}
+
+DummyEndpoint.prototype.makeDataFileWrapper = function(opts, statements){
+    let options = opts || {format:'sql'};
+    let result = null;
+    let config = this.config();
+    // TODO: switch to a plugin loader pattern
+    let exportNames = opts.export || [ this.options.name.substring(0,1).toUpperCase()+
+        this.options.name.substring(1) ];
+    switch((options.format||'').toLowerCase()){
+        case 'sequelize':
+            let include = `const { Sequelize, DataTypes, Model } = require('@sequelize/core');`;
+            include += `\nconst sequelize = require('${options.sequelizePath}');\n`
+            let exportText = `module.exports = ###;`
+            result = statements.join("\n")+'';
+            if(!options.seperate){
+                result = result+"\n"+exportText.replace('###', `{${exportNames.join(', ')}}`)
+            }
+            break;
+        case 'sql':
+            result = statements.join(";\n")+';';
+            break;
+        default: throw new Error('Unknown Type: '+options.format);
+    }
+    return result;
+}
+
+DummyEndpoint.prototype.toDataDefinition = function(opts, names){
+    let options = opts || {format:'sql'};
+    let tableDefinitions = [];
+    let config = this.config();
+    // TODO: switch to a plugin loader pattern
+    let statements = null;
+    switch((options.format||'').toLowerCase()){
+        case 'sequelize':
+            let capName = this.options.name.substring(0,1).toUpperCase()+
+                this.options.name.substring(1);
+            if(names) names.push(capName);
+            statements = sequelize.toSequelize(this.options.name, this.schema, {
+                primaryKey: config.primaryKey
+            });
+            if(options.seperate){
+                statements = statements.map(
+                    (s)=>include+"\n"+s+"\n"+exportText.replace('###', capName)
+                )
+            }
+            tableDefinitions = tableDefinitions.concat(statements);
+            break;
+        case 'sql':
+            statements = sql.toSQL(this.options.name, this.schema);
+            tableDefinitions = tableDefinitions.concat(statements);
+            break;
+        default: throw new Error('Unknown Type: \''+options.format+'\'');
+    }
+    return tableDefinitions;
 }
 
 DummyEndpoint.prototype.cleanedSchema = function(s){

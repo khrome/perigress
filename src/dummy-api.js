@@ -112,7 +112,23 @@ DummyAPI.prototype.generateMigrations = function(otherAPI, options, cb){
 
 DummyAPI.prototype.generateDataDefinitions = function(options, cb){
     this.ready.then(()=>{
-        if((!options.format) || options.format.toLowerCase() === 'sql'){
+        let allStatements = [];
+        let type = (options.format || 'sql').toLowerCase();
+        let names = [];
+        this.endpoints.forEach((endpoint)=>{
+            let statements = endpoint.toDataDefinition(options, names);
+            allStatements = allStatements.concat(statements);
+        });
+        let anEndpoint = this.endpoints[0];
+        setTimeout(()=>{
+            options.export = names;
+            let formattedFile = anEndpoint.makeDataFileWrapper(
+                options,
+                allStatements
+            );
+            cb(null, formattedFile)
+        });
+        /*if((!options.format) || options.format.toLowerCase() === 'sql'){
             let tableDefinitions = [];
             arrays.forEachEmission(this.endpoints, (endpoint, index, done)=>{
                 let statements = toSQL(endpoint.options.name, endpoint.schema);
@@ -135,7 +151,9 @@ DummyAPI.prototype.generateDataDefinitions = function(options, cb){
                 let capName = endpoint.options.name.substring(0,1).toUpperCase()+
                     endpoint.options.name.substring(1);
                 names.push(capName);
-                let statements = sequelize.toSequelize(endpoint.options.name, endpoint.schema);
+                let statements = sequelize.toSequelize(endpoint.options.name, endpoint.schema, {
+                    primaryKey: options.primaryKey
+                });
                 if(options.seperate){
                     statements = statements.map(
                         (s)=>include+"\n"+s+"\n"+exportText.replace('###', capName)
@@ -154,7 +172,7 @@ DummyAPI.prototype.generateDataDefinitions = function(options, cb){
         }
         setTimeout(()=>{
             cb(new Error('Unknown format: '+options.format))
-        })
+        })*/
     });
 }
 

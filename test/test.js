@@ -92,7 +92,11 @@ describe('perigress', ()=>{
                             user.lastName.should.equal('Ruecker');
                             user.email.should.equal('Jared_Franey19@gmail.com');
                             user.phone.should.equal('520-674-9557');
-                            user.birthday.should.equal('1975-08-30T06:00:00.0Z');
+                            try{
+                                should.exist(user.birthday);
+                                let date = new Date(user.birthday);
+                                date.getFullYear().should.equal(1975);
+                            }catch(ex){ should.not.exist(ex) }
                             should.not.exist(valid.error);
                             server.close(()=>{
                                 done();
