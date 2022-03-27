@@ -11,6 +11,7 @@ const { WKR, classifyRegex, generateData } = require('well-known-regex');
 const sql = require('json-schema2sql');
 const sequelize = require('json-schema2sequelize');
 const validate = require('jsonschema').validate;
+const template = require('es6-template-strings');
 
 const defaults = {
     error : ()=>{
@@ -306,6 +307,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     let instances = {};
     let ob = this;
     let primaryKey = 'id';
+    let config = this.config();
 
     getInstance = (ob, key, cb)=>{
         if(instances[key]){
@@ -315,22 +317,65 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         }
     }
 
+    let pathOptions = {
+        basePath : urlPath,
+        primaryKey : primaryKey
+    }
+
+    let urls = {
+        list : template(
+            (
+                (config.paths && config.paths.list) ||
+                '${basePath}/list'
+            ),
+            pathOptions
+        ),
+        listPage : template(
+            (
+                (config.paths && config.paths.listPage) ||
+                '${basePath}/list/:pageNumber'
+            ),
+            pathOptions
+        ),
+        create : template(
+            (
+                (config.paths && config.paths.create) ||
+                '${basePath}/create'
+            ),
+            pathOptions
+        ),
+        edit : template(
+            (
+                (config.paths && config.paths.edit) ||
+                '${basePath}/:${primaryKey}/edit'
+            ),
+            pathOptions
+        ),
+        display : template(
+            (
+                (config.paths && config.paths.display) ||
+                '${basePath}/:${primaryKey}'
+            ),
+            pathOptions
+        )
+    }
+
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/list`, (req, res)=>{
+    ](urls.list, (req, res)=>{
         handleListPage(this, 1, req, res, urlPath, instances);
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/list/:pageNumber`, (req, res)=>{
+    ](urls.listPage, (req, res)=>{
         handleListPage(this, parseInt(req.params.pageNumber), req, res, urlPath);
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/create`, (req, res)=>{
+    ](urls.create, (req, res)=>{
         if(validate(req.body, this.originalSchema)){
             instances[req.body[primaryKey]] = req.body;
             res.send('{"success":true}');
@@ -341,7 +386,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:${primaryKey}/edit`, (req, res)=>{
+    ](urls.edit, (req, res)=>{
         getInstance(this, req.params[primaryKey], (err, item)=>{
             if(req.body && typeof req.body === 'object'){
                 Object.keys(req.body).forEach((key)=>{
@@ -364,7 +409,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:${primaryKey}`, (req, res)=>{
+    ](urls.display, (req, res)=>{
         let config = this.config();
         let primaryKey = config.primaryKey || 'id';
         if(instances[req.params[primaryKey]]){

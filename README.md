@@ -77,7 +77,7 @@ Roadmap
 - [x] - audit columns
 - [x] - edit support (ephemeral)
 - [ ] - example json support
-- [ ] - url mapping
+- [x] - url mapping
 - [x] - seed scripts
 - [ ] - documentation via swagger
 - [ ] - error output
