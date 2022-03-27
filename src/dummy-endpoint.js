@@ -10,6 +10,7 @@ const path = require('path');
 const { WKR, classifyRegex, generateData } = require('well-known-regex');
 const sql = require('json-schema2sql');
 const sequelize = require('json-schema2sequelize');
+const validate = require('jsonschema').validate;
 
 const defaults = {
     error : ()=>{
@@ -197,7 +198,10 @@ DummyEndpoint.prototype.generate = function(id, o, c){
                 case 'string':
                     value[primaryKey] = id;
                     break;
-                default : throw new Error('Cannot create a primary key with type:'+this.schema.properties[primaryKey].type)
+                default : throw new Error(
+                    'Cannot create a primary key with type:'+
+                        this.schema.properties[primaryKey].type
+                )
             }
         }
         let generated;
@@ -218,7 +222,7 @@ DummyEndpoint.prototype.generate = function(id, o, c){
     });
 }
 
-const handleListPage = (ob, pageNumber, req, res, urlPath)=>{
+const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
     let seeds = [];
     let gen = makeGenerator('3c38adefd2f5bf4');
     let idGen = null;
@@ -274,17 +278,22 @@ const handleListPage = (ob, pageNumber, req, res, urlPath)=>{
             seeds = seeds.slice(offset, offset+size);
         }
         arrays.forEachEmission(seeds, (seed, index, done)=>{
-            ob.generate(seed, (err, generated)=>{
-                generated[primaryKey] = seed;
-                items[index] = generated;
+            if(instances[seed]){
+                items[index] = instances[seed];
                 done();
-            });
+            }else{
+                ob.generate(seed, (err, generated)=>{
+                    generated[primaryKey] = seed;
+                    items[index] = generated;
+                    done();
+                });
+            }
         }, ()=>{
             access.set(returnValue, resultSpec.resultSetLocation, items);
             res.send(JSON.stringify(returnValue, null, '    '))
         });
     }).catch((ex)=>{
-
+        console.log(ex);
     });
 };
 
@@ -296,11 +305,21 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     // TODO: make saving work
     let instances = {};
     let ob = this;
+    let primaryKey = 'id';
+
+    getInstance = (ob, key, cb)=>{
+        if(instances[key]){
+            cb(null, instances[key]);
+        }else{
+            this.generate(key, cb);
+        }
+    }
+
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](`${urlPath}/list`, (req, res)=>{
-        handleListPage(this, 1, req, res, urlPath);
+        handleListPage(this, 1, req, res, urlPath, instances);
     });
 
     expressInstance[
@@ -312,23 +331,49 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](`${urlPath}/create`, (req, res)=>{
-        res.send('hello world')
+        if(validate(req.body, this.originalSchema)){
+            instances[req.body[primaryKey]] = req.body;
+            res.send('{"success":true}');
+        }else{
+            res.send('fail')
+        }
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:id/edit`, (req, res)=>{
-        res.send('hello world')
+    ](`${urlPath}/:${primaryKey}/edit`, (req, res)=>{
+        getInstance(this, req.params[primaryKey], (err, item)=>{
+            if(req.body && typeof req.body === 'object'){
+                Object.keys(req.body).forEach((key)=>{
+                    item[key] = req.body[key];
+                });
+                //item is now the set of values to save
+                if(validate(item, this.originalSchema)){
+                    instances[req.params[primaryKey]] = item;
+                    res.send('{"success":true}');
+                }else{
+                    //fail
+                    console.log('**')
+                }
+            }else{
+                //fail
+                console.log('*', req.body)
+            }
+        })
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
-    ](`${urlPath}/:id`, (req, res)=>{
+    ](`${urlPath}/:${primaryKey}`, (req, res)=>{
         let config = this.config();
         let primaryKey = config.primaryKey || 'id';
-        this.generate(req.params[primaryKey], (err, generated)=>{
-            res.send(JSON.stringify(generated, null, '    '))
-        });
+        if(instances[req.params[primaryKey]]){
+            res.send(JSON.stringify(instances[req.params[primaryKey]], null, '    '))
+        }else{
+            this.generate(req.params[primaryKey], (err, generated)=>{
+                res.send(JSON.stringify(generated, null, '    '))
+            });
+        }
     });
 }
 
@@ -348,11 +393,15 @@ DummyEndpoint.prototype.loadSchema = function(filePath, extension, callback){
     let fixedPath = filePath[0] === '/'?filePath:path.join(process.cwd(), filePath);
     switch(extension){
         case 'spec.js':
-            schema = require(fixedPath);
-            schema = joiToJSONSchema(schema);
-            setTimeout(()=>{
-                callback(null, schema);
-            });
+            try{
+                schema = require(fixedPath);
+                schema = joiToJSONSchema(schema);
+                setTimeout(()=>{
+                    callback(null, schema);
+                });
+            }catch(ex){
+                callback(ex);
+            }
             break;
         case 'spec.json':
             fs.readFile(fixedPath, (err, body)=>{
@@ -388,6 +437,7 @@ DummyEndpoint.prototype.load = function(dir, name, extension, cb){
     this.loadSchema(filePath, extension, (err, schema)=>{
         if(err) return callback(err);
         this.schema = schema;
+        this.originalSchema = JSON.parse(JSON.stringify(schema));
         let config = this.config();
         if(config && config.auditColumns && config.auditColumns['$_root']){
             config.auditColumns = joiToJSONSchema(config.auditColumns);
@@ -402,9 +452,10 @@ DummyEndpoint.prototype.load = function(dir, name, extension, cb){
                 this.schema.required.push(key);
             });
         }
-        this.loadSchema(filePath, extension, (err, requestSchema)=>{
-            if(err) return callback(err);
-            this.requestSchema = requestSchema;
+        this.loadSchema(requestPath, extension, (err, requestSchema)=>{
+            if(!err){
+                this.requestSchema = requestSchema;
+            }
             fs.readFile(optionsPath, (err, body)=>{
                 if(err) return callback(err);
                 try{

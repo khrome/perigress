@@ -1,6 +1,5 @@
 const Joi = require('joi');
 
-
 module.exports = {
     primaryKey: 'id',
     page: {

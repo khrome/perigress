@@ -75,12 +75,13 @@ Roadmap
 - [x] - list output
 - [x] - primary key support
 - [x] - audit columns
-- [ ] - edit support (ephemeral)
+- [x] - edit support (ephemeral)
 - [ ] - example json support
 - [ ] - url mapping
 - [x] - seed scripts
 - [ ] - documentation via swagger
 - [ ] - error output
+- [ ] - selector support
 - [ ] - deep object support (support generating from subobjects and arrays)
 - [ ] - mongo support
 - [ ] - api generation

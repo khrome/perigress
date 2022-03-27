@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const CLApp = require('app-term-kit');
 const express = require('express');
+const bodyParser = require('body-parser');
 const Perigress = require('../perigress');
 
 
@@ -26,6 +27,7 @@ app.command({
     action : function(argv, target, complete){
         const port = argv.port || 8080;
         const app = express();
+        app.use(bodyParser.json({strict: false}))
         const api = new Perigress.DummyAPI({
             subpath : target,
             dir: process.cwd()

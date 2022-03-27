@@ -2,6 +2,7 @@ const should = require('chai').should();
 const Perigress = require('../perigress');
 const path = require('path');
 const express = require('express');
+const bodyParser = require('body-parser');
 const request = require('postman-request');
 
 const port = 8080;
@@ -163,6 +164,54 @@ describe('perigress', ()=>{
                 });
             }).catch((ex)=>{
                 should.not.exist(ex);
+            });
+        });
+
+        it('saves changes', (done)=>{
+            const app = express();
+            app.use(bodyParser.json({strict: false}))
+            const api = new Perigress.DummyAPI({
+                subpath : 'paged-wkr-api',
+                dir: __dirname
+            });
+            api.attach(app, ()=>{
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method: 'POST',
+                        json: true
+                    }, (err, res, body)=>{
+                        should.not.exist(err);
+                        item = body.results[0];
+                        item.firstName = 'Bob';
+                        request({
+                            url: `http://localhost:${port}/v1/user/${item.id}/edit`,
+                            method: 'POST',
+                            json : item
+                        }, (err, res, body)=>{
+                            should.not.exist(err);
+                            request({
+                                url: `http://localhost:${port}/v1/user/${item.id}`,
+                                method: 'POST',
+                                json: true
+                            }, (err, res, body)=>{
+                                should.not.exist(err);
+                                body.firstName.should.equal('Bob');
+                                request({
+                                    url: `http://localhost:${port}/v1/user/list`,
+                                    method: 'POST',
+                                    json: true
+                                }, (err, res, body)=>{
+                                    should.not.exist(err);
+                                    body.results[0].firstName.should.equal('Bob');
+                                    server.close(()=>{
+                                        done();
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
             });
         });
 
