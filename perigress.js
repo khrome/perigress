@@ -1,6 +1,6 @@
 const DummyEndpoint = require('./src/dummy-endpoint');
 const DummyAPI = require('./src/dummy-api');
-const {WKR} = require('well-known-regex');
+const { WKR } = require('well-known-regex');
 
 module.exports = {
     DummyEndpoint,

@@ -74,11 +74,11 @@ Roadmap
 
 - [x] - list output
 - [x] - primary key support
-- [ ] - audit columns
+- [x] - audit columns
 - [ ] - edit support (ephemeral)
 - [ ] - example json support
 - [ ] - url mapping
-- [ ] - seed scripts
+- [x] - seed scripts
 - [ ] - documentation via swagger
 - [ ] - error output
 - [ ] - deep object support (support generating from subobjects and arrays)

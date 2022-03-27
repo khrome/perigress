@@ -123,7 +123,7 @@ DummyEndpoint.prototype.makeMigrationFileWrapper = function(opts, statements){
     return result;
 }
 
-DummyEndpoint.prototype.toDataMigration = function(opts, names){
+DummyEndpoint.prototype.toDataMigration = function(schema, opts, names){
     let options = opts || {format:'sql'};
     let tableDefinitions = [];
     let config = this.config();
@@ -388,6 +388,20 @@ DummyEndpoint.prototype.load = function(dir, name, extension, cb){
     this.loadSchema(filePath, extension, (err, schema)=>{
         if(err) return callback(err);
         this.schema = schema;
+        let config = this.config();
+        if(config && config.auditColumns && config.auditColumns['$_root']){
+            config.auditColumns = joiToJSONSchema(config.auditColumns);
+        }
+        if(config.auditColumns && config.auditColumns.properties){
+            Object.keys(config.auditColumns.properties).forEach((key)=>{
+                this.schema.properties[key] = config.auditColumns.properties[key];
+            });
+        }
+        if(config.auditColumns && config.auditColumns.required){
+            config.auditColumns.required.forEach((key)=>{
+                this.schema.required.push(key);
+            });
+        }
         this.loadSchema(filePath, extension, (err, requestSchema)=>{
             if(err) return callback(err);
             this.requestSchema = requestSchema;
