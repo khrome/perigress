@@ -171,7 +171,7 @@ describe('perigress', ()=>{
             const app = express();
             app.use(bodyParser.json({strict: false}))
             const api = new Perigress.DummyAPI({
-                subpath : 'paged-wkr-api',
+                subpath : 'audit-api',
                 dir: __dirname
             });
             api.attach(app, ()=>{
@@ -212,6 +212,51 @@ describe('perigress', ()=>{
                         });
                     });
                 });
+            });
+        });
+
+    });
+
+    describe('works using a paging API with audit columns', ()=>{
+
+        it('loads and fetches an example file', (done)=>{
+            const app = express();
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/transaction/15`,
+                        method: 'POST',
+                        json: true
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            should.exist(result);
+                            should.exist(result.cardId);
+                            result.cardId.should.equal('AD7D24D566CB7489');
+                            should.exist(result.total);
+                            result.total.should.equal('24.03');
+                            should.exist(result.currency);
+                            result.currency.should.equal('USD');
+                            should.exist(result.externalTransactionId);
+                            result.externalTransactionId.should.equal('472-224-4455');
+                            should.exist(result.network);
+                            result.network.should.equal('CHASE');
+                            server.close(()=>{
+                                done();
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
             });
         });
 

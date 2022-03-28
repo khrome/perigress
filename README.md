@@ -76,10 +76,10 @@ Roadmap
 - [x] - primary key support
 - [x] - audit columns
 - [x] - edit support (ephemeral)
-- [ ] - example json support
+- [x] - example json support
 - [x] - url mapping
 - [x] - seed scripts
-- [ ] - documentation via swagger
+- [ ] - documentation via OpenAPI
 - [ ] - error output
 - [ ] - selector support
 - [ ] - deep object support (support generating from subobjects and arrays)

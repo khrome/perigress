@@ -28,6 +28,7 @@ const DummyEndpoint = function(options, api){
     if(this.options.spec && !this.options.name){
         this.options.name = this.options.spec.split('.').shift();
     }
+    this.instances = {};
     //this.config = api.config(this.options.path);
     this.api = api;
     //this.config = api.config();
@@ -303,15 +304,13 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         path.join(this.options.root, this.options.subpath).length
     );
     let urlPath = prefix+'/'+this.options.spec.split('.').shift();
-    // TODO: make saving work
-    let instances = {};
     let ob = this;
-    let primaryKey = 'id';
     let config = this.config();
+    let primaryKey = config.primaryKey || 'id';
 
     getInstance = (ob, key, cb)=>{
-        if(instances[key]){
-            cb(null, instances[key]);
+        if(this.instances[key]){
+            cb(null, this.instances[key]);
         }else{
             this.generate(key, cb);
         }
@@ -364,7 +363,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](urls.list, (req, res)=>{
-        handleListPage(this, 1, req, res, urlPath, instances);
+        handleListPage(this, 1, req, res, urlPath, this.instances);
     });
 
     expressInstance[
@@ -377,7 +376,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         this.endpointOptions.method.toLowerCase()
     ](urls.create, (req, res)=>{
         if(validate(req.body, this.originalSchema)){
-            instances[req.body[primaryKey]] = req.body;
+            this.instances[req.body[primaryKey]] = req.body;
             res.send('{"success":true}');
         }else{
             res.send('fail')
@@ -394,7 +393,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
                 });
                 //item is now the set of values to save
                 if(validate(item, this.originalSchema)){
-                    instances[req.params[primaryKey]] = item;
+                    this.instances[req.params[primaryKey]] = item;
                     res.send('{"success":true}');
                 }else{
                     //fail
@@ -412,8 +411,8 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     ](urls.display, (req, res)=>{
         let config = this.config();
         let primaryKey = config.primaryKey || 'id';
-        if(instances[req.params[primaryKey]]){
-            res.send(JSON.stringify(instances[req.params[primaryKey]], null, '    '))
+        if(this.instances[req.params[primaryKey]]){
+            res.send(JSON.stringify(this.instances[req.params[primaryKey]], null, '    '))
         }else{
             this.generate(req.params[primaryKey], (err, generated)=>{
                 res.send(JSON.stringify(generated, null, '    '))
@@ -479,36 +478,71 @@ DummyEndpoint.prototype.load = function(dir, name, extension, cb){
     const filePath = path.join(dir, `${name}.${extension}`);
     const requestPath = filePath.replace('.spec.', '.request.');
     const optionsPath = path.join(dir, `${name}.options.json`);
-    this.loadSchema(filePath, extension, (err, schema)=>{
-        if(err) return callback(err);
-        this.schema = schema;
-        this.originalSchema = JSON.parse(JSON.stringify(schema));
-        let config = this.config();
-        if(config && config.auditColumns && config.auditColumns['$_root']){
-            config.auditColumns = joiToJSONSchema(config.auditColumns);
-        }
-        if(config.auditColumns && config.auditColumns.properties){
-            Object.keys(config.auditColumns.properties).forEach((key)=>{
-                this.schema.properties[key] = config.auditColumns.properties[key];
+    fs.readdir(dir, (err, list)=>{
+        let exampleFiles = list.filter(listname =>{
+            return (listname.indexOf(`.${name}.example.json`) !== -1) ||
+                (listname.indexOf(`.${name}.input.json`) !== -1);
+        });
+        let matched = null;
+        if(exampleFiles.length){
+            let examples = exampleFiles.filter(listname => listname.indexOf(`.${name}.example.json`) !== -1);
+            let inputs = exampleFiles.filter(listname => listname.indexOf(`.${name}.input.json`) !== -1);
+            matched = examples.map((i)=>{ return {
+                output: i,
+                input: (
+                    inputs.filter(
+                        item =>  item.indexOf(`${i.split('.').shift()}.${name}.input.json`) === 0
+                    )[0]
+                )
+            }});
+            //now load
+            matched = matched.map((item)=>{
+                let res = {};
+                if(item.input) res.input = require(path.join(dir, item.input));
+                if(item.output) res.output = require(path.join(dir, item.output));
+                return res;
             });
         }
-        if(config.auditColumns && config.auditColumns.required){
-            config.auditColumns.required.forEach((key)=>{
-                this.schema.required.push(key);
-            });
-        }
-        this.loadSchema(requestPath, extension, (err, requestSchema)=>{
-            if(!err){
-                this.requestSchema = requestSchema;
+        this.loadSchema(filePath, extension, (err, schema)=>{
+            if(err) return callback(err);
+            this.schema = schema;
+            this.originalSchema = JSON.parse(JSON.stringify(schema));
+            let config = this.config();
+            let primaryKey = config.primaryKey || 'id';
+            if(matched){
+                matched.forEach((item)=>{
+                    if(item.output && item.output[primaryKey]){
+                        this.instances[item.output[primaryKey]] = item.output;
+                    }
+                });
+                //TODO: handle inputs
             }
-            fs.readFile(optionsPath, (err, body)=>{
-                if(err) return callback(err);
-                try{
-                    this.endpointOptions = JSON.parse(body);
-                    this.cleanupOptions(this.endpointOptions);
-                }catch(ex){
-                    callback(ex);
+            if(config && config.auditColumns && config.auditColumns['$_root']){
+                config.auditColumns = joiToJSONSchema(config.auditColumns);
+            }
+            if(config.auditColumns && config.auditColumns.properties){
+                Object.keys(config.auditColumns.properties).forEach((key)=>{
+                    this.schema.properties[key] = config.auditColumns.properties[key];
+                });
+            }
+            if(config.auditColumns && config.auditColumns.required){
+                config.auditColumns.required.forEach((key)=>{
+                    this.schema.required.push(key);
+                });
+            }
+            this.loadSchema(requestPath, extension, (err, requestSchema)=>{
+                if(!err){
+                    this.requestSchema = requestSchema;
                 }
+                fs.readFile(optionsPath, (err, body)=>{
+                    if(err) return callback(err);
+                    try{
+                        this.endpointOptions = JSON.parse(body);
+                        this.cleanupOptions(this.endpointOptions);
+                    }catch(ex){
+                        callback(ex);
+                    }
+                });
             });
         });
     });
