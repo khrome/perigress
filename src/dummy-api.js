@@ -1,5 +1,6 @@
 const ks = require('kitchen-sync');
 const arrays = require('async-arrays');
+const access = require('object-accessor');
 const fs = require('fs');
 const path = require('path');
 const hash = require('object-hash');
@@ -33,11 +34,22 @@ const DummyAPI = function(dir){
     }, 0);
 }
 
+const returnError = (res, error, errorConfig, config)=>{
+    let response = JSON.parse(JSON.stringify(errorConfig.structure));
+    access.set(response, errorConfig.code, error.code);
+    access.set(response, errorConfig.message, error.message);
+    res.send(JSON.stringify(response, null, '    '));
+};
+
 DummyAPI.prototype.attach = function(instance, cb){
     this.ready.then(()=>{
+        let firstEndpoint = this.endpoints[0];
         this.endpoints.forEach((endpoint)=>{
             endpoint.attach(instance);
         });
+        instance.all('*', (req, res)=>{
+            returnError(res, new Error('Path not found.'), firstEndpoint.errorSpec(), firstEndpoint.config())
+        })
         if(cb) cb();
     });
 }

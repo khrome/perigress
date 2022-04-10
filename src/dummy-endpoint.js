@@ -22,6 +22,17 @@ const defaults = {
     }
 }
 
+const returnError = (res, error, errorConfig, config)=>{
+    let response = JSON.parse(JSON.stringify(errorConfig.structure));
+    access.set(response, errorConfig.code, error.code);
+    access.set(response, errorConfig.message, error.message);
+    res.send(JSON.stringify(response, null, '    '));
+};
+
+const returnContent = (res, result, errorConfig, config)=>{
+    res.send(JSON.stringify(result, null, '    '));
+};
+
 
 const DummyEndpoint = function(options, api){
     this.options = options || {};
@@ -229,6 +240,7 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
     let gen = makeGenerator('3c38adefd2f5bf4');
     let idGen = null;
     let config = ob.config();
+    let errorConfig = ob.errorSpec();
     //TODO: make default come from datasource
     let primaryKey = config.primaryKey || 'id';
     if(ob.schema.properties[primaryKey].type === 'string'){
@@ -292,10 +304,11 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
             }
         }, ()=>{
             access.set(returnValue, resultSpec.resultSetLocation, items);
-            res.send(JSON.stringify(returnValue, null, '    '))
+            returnContent(res, returnValue, errorConfig, config);
         });
     }).catch((ex)=>{
         console.log(ex);
+        returnError(res, ex, errorConfig, config)
     });
 };
 
@@ -306,6 +319,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     let urlPath = prefix+'/'+this.options.spec.split('.').shift();
     let ob = this;
     let config = this.config();
+    let errorConfig = this.errorSpec();
     let primaryKey = config.primaryKey || 'id';
 
     getInstance = (ob, key, cb)=>{
@@ -377,7 +391,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     ](urls.create, (req, res)=>{
         if(validate(req.body, this.originalSchema)){
             this.instances[req.body[primaryKey]] = req.body;
-            res.send('{"success":true}');
+            returnContent(res, {success:true}, errorConfig, config);
         }else{
             res.send('fail')
         }
@@ -394,7 +408,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
                 //item is now the set of values to save
                 if(validate(item, this.originalSchema)){
                     this.instances[req.params[primaryKey]] = item;
-                    res.send('{"success":true}');
+                    returnContent(res, {success:true}, errorConfig, config);
                 }else{
                     //fail
                     console.log('**')

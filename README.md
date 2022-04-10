@@ -29,7 +29,7 @@ You can launch the mock on the command line:
 # use ./node_modules/perigress/bin/peri if you don't have a global `peri`
 peri serve ./verifiers --port 8080
 #in another terminal:
-open "http://localhost:8080/v1/user/list"
+open "http://localhost:8080/api/user/list"
 ```
 
 You can also launch the server within your code:
@@ -37,7 +37,7 @@ You can also launch the server within your code:
 ```javascript
 const { DummyAPI } = require('perigress');
 const api = new DummyAPI({
-    subpath : 'api-directory',
+    subpath : 'verifiers',
     dir: __dirname
 });
 api.attach(expressInstance);
@@ -82,8 +82,13 @@ Roadmap
 - [ ] - documentation via OpenAPI
 - [ ] - error output
 - [ ] - selector support
+- [ ] - foreign key support
+- [ ] - db test suites
 - [ ] - deep object support (support generating from subobjects and arrays)
-- [ ] - mongo support
+- [ ] - [mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/methods/#std-label-mdb-shell-methods) + [mongojs](https://www.npmjs.com/package/mongojs) support
+- [ ] - [yup](https://www.npmjs.com/package/yup) support
+- [ ] - [prisma](https://www.prisma.io/) support
+- [ ] - [mongoose](https://www.npmjs.com/package/mongoose) support
 - [ ] - api generation
 
 

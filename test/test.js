@@ -260,5 +260,41 @@ describe('perigress', ()=>{
             });
         });
 
+        it('outputs an error', (done)=>{
+            const app = express();
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/notAnObject/15`,
+                        method: 'POST',
+                        json: true
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            should.exist(result);
+                            should.exist(result.status);
+                            result.status.should.equal('error');
+                            should.exist(result.error);
+                            should.exist(result.error.message);
+                            result.error.message.should.equal('Path not found.');
+                            server.close(()=>{
+                                done();
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+
     });
 });
