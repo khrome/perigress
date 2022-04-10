@@ -80,7 +80,7 @@ Roadmap
 - [x] - url mapping
 - [x] - seed scripts
 - [ ] - documentation via OpenAPI
-- [ ] - error output
+- [x] - error output
 - [ ] - selector support
 - [ ] - foreign key support
 - [ ] - db test suites
