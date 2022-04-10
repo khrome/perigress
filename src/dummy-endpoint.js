@@ -7,6 +7,7 @@ const jsonSchemaFaker = require('json-schema-faker');
 const { makeGenerator } = require('./random');
 const fs = require('fs');
 const path = require('path');
+const sift = require('sift').default;
 const { WKR, classifyRegex, generateData } = require('well-known-regex');
 const sql = require('json-schema2sql');
 const sequelize = require('json-schema2sequelize');
@@ -235,7 +236,7 @@ DummyEndpoint.prototype.generate = function(id, o, c){
     });
 }
 
-const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
+const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = {})=>{
     let seeds = [];
     let gen = makeGenerator('3c38adefd2f5bf4');
     let idGen = null;
@@ -258,6 +259,9 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
         }
     }
     let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
+    if(options.query){ // generate more, so we have more potential results
+        length = length * 10;
+    }
     for(let lcv=0; lcv < length; lcv++){
         seeds.push(idGen());
     }
@@ -265,7 +269,76 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     let resultSpec = ob.resultSpec();
     let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
+    let fillList = (seeds, cb)=>{
+        //TODO: handle expansion
+        arrays.forEachEmission(seeds, (seed, index, done)=>{
+            if(instances[seed]){
+                items[index] = instances[seed];
+                done();
+            }else{
+                ob.generate(seed, (err, generated)=>{
+                    generated[primaryKey] = seed;
+                    items[index] = generated;
+                    done();
+                });
+            }
+        }, ()=>{
+            cb(null, items);
+        });
+    }
+    let pageVars = ()=>{
+        let size = config.defaultSize || 30;
+        let pageFrom0 = pageNumber - 1;
+        let offset = pageFrom0 * size;
+        let count = Math.ceil(seeds.length/size);
+        return {size, pageFrom0, offset, count};
+    };
+    let writeResults = (results, set)=>{
+        if(config.total){
+            access.set(results, config.total, seeds.length);
+        }
+        if(config.page){
+            let opts = pageVars();
+            if(config.page.size){
+                access.set(results, config.page.size, opts.size);
+            }
+            if(config.page.count){
+                access.set(results, config.page.count, opts.count);
+            }
+            if(config.page.next && pageNumber < opts.count){
+                access.set(results, config.page.next, urlPath+'/list/'+(pageNumber+1));
+            }
+            if(config.page.previous && pageNumber > 1){
+                access.set(results, config.page.previous, urlPath+'/list/'+(pageNumber-1));
+            }
+            if(config.page.number){
+                access.set(results, config.page.number, pageNumber);
+            }
+            //seeds = seeds.slice(offset, offset+size);
+        }
+        access.set(results, resultSpec.resultSetLocation, set);
+    }
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
+        if(!options.query){ // we are going to do only the work we have to by pulling a raw page slice
+            try{
+                let opts = pageVars();
+                seeds = seeds.slice(opts.offset, opts.offset+opts.size);
+                fillList(seeds, (err, filled)=>{
+                    writeResults(returnValue, filled);
+                    returnContent(res, returnValue, errorConfig, config);
+                });
+            }catch(ex){ console.log(ex) }
+        }else{ // we do all the work
+            let opts = pageVars();
+            fillList(seeds, (err, filled)=>{
+                let set = filled.filter(sift(options.query));
+                set = set.slice(opts.offset, opts.offset+opts.size);
+                writeResults(returnValue, set);
+                returnContent(res, returnValue, errorConfig, config);
+            });
+        }
+    });
+    /*jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
         if(config.total){
             access.set(returnValue, config.total, seeds.length);
         }
@@ -309,7 +382,7 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances)=>{
     }).catch((ex)=>{
         console.log(ex);
         returnError(res, ex, errorConfig, config)
-    });
+    });*/
 };
 
 DummyEndpoint.prototype.attach = function(expressInstance){
@@ -377,13 +450,15 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](urls.list, (req, res)=>{
-        handleListPage(this, 1, req, res, urlPath, this.instances);
+        let options = typeof req.body === 'string'?req.params:req.body;
+        handleListPage(this, 1, req, res, urlPath, this.instances, options);
     });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](urls.listPage, (req, res)=>{
-        handleListPage(this, parseInt(req.params.pageNumber), req, res, urlPath);
+        let options = typeof req.body === 'string'?req.params:req.body;
+        handleListPage(this, parseInt(req.params.pageNumber), req, res, urlPath, this.instances, options);
     });
 
     expressInstance[

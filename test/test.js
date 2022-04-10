@@ -296,5 +296,48 @@ describe('perigress', ()=>{
             });
         });
 
+        it('works with query documents ', (done)=>{
+            const app = express();
+            app.use(bodyParser.json({strict: false}));
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method: 'POST',
+                        json: {
+                            query: {
+                                'id': {$lt: 500}
+                            }
+                        }
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            should.exist(result);
+                            should.exist(result.status);
+                            result.status.toLowerCase().should.equal('success');
+                            should.exist(result.results);
+                            result.results.forEach((item)=>{
+                                (item.id < 500).should.equal(true);
+                            });
+                            result.results.length.should.equal(15);
+                            server.close(()=>{
+                                done();
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+
     });
 });
