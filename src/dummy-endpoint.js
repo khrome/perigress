@@ -44,15 +44,44 @@ const capitalize = (s)=>{
 
 const DummyEndpoint = function(options, api){
     this.options = options || {};
+    this.api = api;
+    this.instances = {};
+    this.endpointOptions = {};
+    this.cleanupOptions(this.endpointOptions);
+
     if(this.options.spec && !this.options.name){
         this.options.name = this.options.spec.split('.').shift();
     }
-    this.instances = {};
-    //this.config = api.config(this.options.path);
-    this.api = api;
-    //this.config = api.config();
-    this.endpointOptions = {};
-    this.cleanupOptions(this.endpointOptions);
+    let conf = this.config();
+    if(conf.foreignKey && !this.options.expandable){
+        if(!conf.expandable){
+            // use the default
+            let identifier= this.options.identifier || 'id';
+            this.options.expandable = function(type, fieldName, fieldValue){
+                // returns falsy *OR* {type, value}
+                const index = fieldName.lastIndexOf(capitalize(identifier));
+                if(index === -1) return false;
+                if(
+                    // did we find it at the end of the string?
+                    index + identifier.length === fieldName.length &&
+                    // is the id an integer?
+                    fieldValue === '::'?true:Number.isInteger(fieldValue)
+                ){
+                    const linkField = fieldName.substring(0, fieldName.length - identifier.length);
+                    return {
+                        type: linkField,
+                        suffix: fieldName.substring(linkField.length)
+                    };
+                }
+                return false;
+            };
+        }
+        if(conf.expandable && typeof conf.expandable === 'function'){
+            // use the default
+            console.log('expand set from conf')
+            this.options.expandable = conf.expandable;
+        }
+    }
 }
 
 DummyEndpoint.prototype.cleanupOptions = function(options){
@@ -105,6 +134,7 @@ DummyEndpoint.prototype.toDataDefinition = function(opts, names){
             if(names) names.push(capName);
             statements = sequelize.toSequelize(this.options.name, this.schema, {
                 primaryKey: config.primaryKey,
+                foreignKey: options.isForeignKey,
                 serial: isSerial
             });
             if(options.seperate){
@@ -117,7 +147,8 @@ DummyEndpoint.prototype.toDataDefinition = function(opts, names){
         case 'sql':
             statements = sql.toSQL(this.options.name, this.schema, {
                 primaryKey: config.primaryKey,
-                serial: isSerial
+                serial: isSerial,
+                foreignKey: options.isForeignKey
             });
             tableDefinitions = tableDefinitions.concat(statements);
             break;
@@ -266,7 +297,7 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
             // if the criteria is the lone id
             let keys = Object.keys(criteria);
             if(keys.length === 1){
-                let parts = expandable(type, keys[0], criteria[keys[0]]);
+                let parts = ob.options.expandable(type, keys[0], criteria[keys[0]]);
                 if(parts){ //is a foreign key
                     res.generate(criteria[keys[0]], (err, generated)=>{
                         generated[primaryKey] = criteria[identifier];
@@ -314,8 +345,8 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     let resultSpec = ob.resultSpec();
     let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
-    let identifier= 'id';
-    let expandable = (type, fieldName, fieldValue) => {
+    let identifier= ob.options.identifier || 'id';
+    /*let expandable = (type, fieldName, fieldValue) => {
         // returns falsy *OR* {type, value}
         const index = fieldName.lastIndexOf(capitalize(identifier));
         if(index === -1) return false;
@@ -332,11 +363,11 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
             };
         }
         return false;
-    }
+    }*/
     const populate = new Pop({
         identifier,
         linkSuffix: '',
-        expandable,
+        expandable: ob.options.expandable,
         listSuffix: 'list',
         lookup
     });
@@ -376,15 +407,21 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
                     let tpe = expansions.map((expansion)=>{
                         switch(expansion.type){
                             case 'internal':
+                                return expansion.expand;
                                 break;
                             case 'link':
-
+                                let parts = expansion.expand.split('+');
+                                return parts[0]+parts[1][0].toUpperCase()+
+                                    parts[1].substring(1)+':'+parts[0]+
+                                    ':'+parts[1];
                                 break;
                             case 'external':
+                                return '<'+expansion.expand;
                                 break;
                             default: throw new Error('Unrecognized type:'+expansion.type)
                         }
                     });
+                    //console.log('TPE', tpe);
                     ob.generate(seed, (err, generated)=>{
                         populate.tree(ob.options.name, generated, [
                             //'sessionId',
@@ -664,8 +701,16 @@ DummyEndpoint.prototype.load = function(dir, name, extension, cb){
             //now load
             matched = matched.map((item)=>{
                 let res = {};
-                if(item.input) res.input = require(path.join(dir, item.input));
-                if(item.output) res.output = require(path.join(dir, item.output));
+                if(item.input) res.input = require(
+                    dir[0] === '/'?
+                    path.join(dir, item.input):
+                    path.join(process.cwd(), dir, item.input)
+                );
+                if(item.output) res.output = require(
+                    dir[0] === '/'?
+                    path.join(dir, item.output):
+                    path.join(process.cwd(), dir, item.output)
+                );
                 return res;
             });
         }

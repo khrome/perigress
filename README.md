@@ -82,8 +82,8 @@ Roadmap
 - [ ] - documentation via OpenAPI
 - [x] - error output
 - [x] - selector support [query filter documents](https://www.mongodb.com/docs/manual/core/document/#std-label-document-query-filter)
-- [ ] - foreign key support
-- [ ] - document assembly
+- [x] - foreign key support
+- [x] - document assembly
 - [ ] - db test suites
 - [ ] - deep object support (support generating from subobjects and arrays)
 - [ ] - [mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/methods/#std-label-mdb-shell-methods) + [mongojs](https://www.npmjs.com/package/mongojs) support

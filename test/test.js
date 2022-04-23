@@ -357,7 +357,7 @@ describe('perigress', ()=>{
                             query: {
                                 'id': {$lt: 500}
                             },
-                            link: ['userTransaction']
+                            link: ['user+transaction']
                         }
                     }, (err, res, result)=>{
                         should.not.exist(err);

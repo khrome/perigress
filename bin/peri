@@ -53,7 +53,14 @@ app.command({
         perigress.generateDataDefinitions({
             format,
             sequelizePath: argv.sequelize,
-            seperate: argv.seperate
+            seperate: argv.seperate,
+            isForeignKey: (type, name, value)=>{
+                let engine = perigress.endpoints.find((endpoint)=>{
+                    return endpoint.options.name === type;
+                });
+                if(!engine) return false;
+                return engine.options.expandable(type, name, value)
+            }
         }, (err, result)=>{
             console.log(result);
             complete();
