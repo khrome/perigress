@@ -11,6 +11,20 @@ module.exports = {
         defaultSize: 30
     },
     total : 'total',
+    foreignKey : (id, getTables)=>{
+        let suffix = id.substring(id.length-2);
+        if(suffix === 'Id'){
+            let tableString = id.substring(id.length-2);
+            let parts = getTables(tableString);
+            let result = {
+                suffix,
+                raw: id
+            };
+            if(parts.to) result.to = parts.to;
+            if(parts.from) result.from = parts.from;
+            return result;
+        }else return null;
+    },
     auditColumns : Joi.object().keys({
         id: Joi.number().integer().required(),
         isDeleted: Joi.boolean(),

@@ -6,6 +6,7 @@ const joiToJSONSchema = require('joi-to-json')
 const jsonSchemaFaker = require('json-schema-faker');
 const { makeGenerator } = require('./random');
 const fs = require('fs');
+const Pop = require('tree-pop');
 const path = require('path');
 const sift = require('sift').default;
 const { WKR, classifyRegex, generateData } = require('well-known-regex');
@@ -32,6 +33,12 @@ const returnError = (res, error, errorConfig, config)=>{
 
 const returnContent = (res, result, errorConfig, config)=>{
     res.send(JSON.stringify(result, null, '    '));
+};
+
+const capitalize = (s)=>{
+    return s.split(' ').map((word)=>{
+        return word[0].toUpperCase()+word.substring(1);
+    }).join('');
 };
 
 
@@ -236,7 +243,44 @@ DummyEndpoint.prototype.generate = function(id, o, c){
     });
 }
 
+
 const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = {})=>{
+    let lookup = (type, context, cb) => {
+        let res = ob.api.endpoints.find((item)=>{
+            return item.options.name === type;
+        });
+        if(!res) return cb(new Error('Type not Found!'));
+        if(Array.isArray(context)){
+            let items = [];
+            arrays.forEachEmission(context, (seed, index, done)=>{
+                res.generate(seed, (err, generated)=>{
+                    generated[primaryKey] = seed;
+                    items[index] = generated;
+                    done();
+                });
+            }, ()=>{
+                cb && cb(null, items);
+            });
+        }else{
+            const criteria = context;
+            // if the criteria is the lone id
+            let keys = Object.keys(criteria);
+            if(keys.length === 1){
+                let parts = expandable(type, keys[0], criteria[keys[0]]);
+                if(parts){ //is a foreign key
+                    res.generate(criteria[keys[0]], (err, generated)=>{
+                        generated[primaryKey] = criteria[identifier];
+                        items[0] = generated;
+                        cb && cb(null, items);
+                    });
+                    return;
+                }
+                if(criteria[identifier] && criteria[identifier]['$in']){
+                    return lookup(type, criteria[identifier]['$in'], cb)
+                }
+            }
+        }
+    }
     let seeds = [];
     let gen = makeGenerator('3c38adefd2f5bf4');
     let idGen = null;
@@ -255,7 +299,8 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
         ob.schema.properties[primaryKey].type === 'integer'
     ){
         idGen = ()=>{
-            return gen.randomInt(0, 10000);
+            let v = gen.randomInt(0, 10000);
+            return v;
         }
     }
     let length = 30 * gen.randomInt(1, 3) + gen.randomInt(0, 30);
@@ -269,18 +314,95 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     let resultSpec = ob.resultSpec();
     let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
-    let fillList = (seeds, cb)=>{
+    let identifier= 'id';
+    let expandable = (type, fieldName, fieldValue) => {
+        // returns falsy *OR* {type, value}
+        const index = fieldName.lastIndexOf(capitalize(identifier));
+        if(index === -1) return false;
+        if(
+            // did we find it at the end of the string?
+            index + identifier.length === fieldName.length &&
+            // is the id an integer?
+            Number.isInteger(fieldValue)
+        ){
+            const linkField = fieldName.substring(0, fieldName.length - identifier.length);
+            return {
+                type: linkField,
+                suffix: fieldName.substring(linkField.length)
+            };
+        }
+        return false;
+    }
+    const populate = new Pop({
+        identifier,
+        linkSuffix: '',
+        expandable,
+        listSuffix: 'list',
+        lookup
+    });
+    let stringsToStructs = (strs, field, type)=>{
+        return strs.map((v)=>{
+            let res = { type };
+            res[field] = v;
+            return res;
+        });
+    }
+    let fillList = (seeds, options, cb)=>{
         //TODO: handle expansion
+        let items = [];
         arrays.forEachEmission(seeds, (seed, index, done)=>{
             if(instances[seed]){
                 items[index] = instances[seed];
                 done();
             }else{
-                ob.generate(seed, (err, generated)=>{
-                    generated[primaryKey] = seed;
-                    items[index] = generated;
-                    done();
-                });
+                if(
+                    config.foreignKey &&
+                    (options.internal || options.link || options.external)
+                ){
+                    let expansions = [].concat(stringsToStructs(
+                        options.internal || [],
+                        'expand',
+                        'internal'
+                    )).concat(stringsToStructs(
+                        options.link || [],
+                        'expand',
+                        'link'
+                    )).concat(stringsToStructs(
+                        options.external || [],
+                        'expand',
+                        'external'
+                    ));
+                    //console.log('EXP', expansions);
+                    let tpe = expansions.map((expansion)=>{
+                        switch(expansion.type){
+                            case 'internal':
+                                break;
+                            case 'link':
+
+                                break;
+                            case 'external':
+                                break;
+                            default: throw new Error('Unrecognized type:'+expansion.type)
+                        }
+                    });
+                    ob.generate(seed, (err, generated)=>{
+                        populate.tree(ob.options.name, generated, [
+                            //'sessionId',
+                            //'<post',
+                            //'userAddressLink:user:address'
+                            'userTransaction:user:transaction'
+                        ], (err, tree)=>{
+                            items[index] = tree;
+                            done();
+                        });
+                    });
+                }else{
+                    ob.generate(seed, (err, generated)=>{
+                        generated[primaryKey] = seed;
+                        items[index] = generated;
+                        done();
+                    });
+                }
             }
         }, ()=>{
             cb(null, items);
@@ -293,9 +415,9 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
         let count = Math.ceil(seeds.length/size);
         return {size, pageFrom0, offset, count};
     };
-    let writeResults = (results, set)=>{
+    let writeResults = (results, set, size)=>{
         if(config.total){
-            access.set(results, config.total, seeds.length);
+            access.set(results, config.total, size || seeds.length);
         }
         if(config.page){
             let opts = pageVars();
@@ -314,75 +436,30 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
             if(config.page.number){
                 access.set(results, config.page.number, pageNumber);
             }
-            //seeds = seeds.slice(offset, offset+size);
         }
         access.set(results, resultSpec.resultSetLocation, set);
     }
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
-        if(!options.query){ // we are going to do only the work we have to by pulling a raw page slice
+        if(!options.query){ // we are going to do only the work on the page
             try{
                 let opts = pageVars();
                 seeds = seeds.slice(opts.offset, opts.offset+opts.size);
-                fillList(seeds, (err, filled)=>{
+                fillList(seeds, options, (err, filled)=>{
                     writeResults(returnValue, filled);
                     returnContent(res, returnValue, errorConfig, config);
                 });
             }catch(ex){ console.log(ex) }
-        }else{ // we do all the work
+        }else{ // we do all the work: we need to reduce using full values
             let opts = pageVars();
-            fillList(seeds, (err, filled)=>{
+            fillList(seeds, options, (err, filled)=>{
                 let set = filled.filter(sift(options.query));
+                let len = set.length;
                 set = set.slice(opts.offset, opts.offset+opts.size);
-                writeResults(returnValue, set);
+                writeResults(returnValue, set, len);
                 returnContent(res, returnValue, errorConfig, config);
             });
         }
     });
-    /*jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
-        if(config.total){
-            access.set(returnValue, config.total, seeds.length);
-        }
-        if(config.page){
-            let size = config.defaultSize || 30;
-            let pageFrom0 = pageNumber - 1;
-            let offset = pageFrom0 * size;
-            let count = Math.ceil(seeds.length/size);
-            if(config.page.size){
-                access.set(returnValue, config.page.size, size);
-            }
-            if(config.page.count){
-                access.set(returnValue, config.page.count, count);
-            }
-            if(config.page.next && pageNumber < count){
-                access.set(returnValue, config.page.next, urlPath+'/list/'+(pageNumber+1));
-            }
-            if(config.page.previous && pageNumber > 1){
-                access.set(returnValue, config.page.previous, urlPath+'/list/'+(pageNumber-1));
-            }
-            if(config.page.number){
-                access.set(returnValue, config.page.number, pageNumber);
-            }
-            seeds = seeds.slice(offset, offset+size);
-        }
-        arrays.forEachEmission(seeds, (seed, index, done)=>{
-            if(instances[seed]){
-                items[index] = instances[seed];
-                done();
-            }else{
-                ob.generate(seed, (err, generated)=>{
-                    generated[primaryKey] = seed;
-                    items[index] = generated;
-                    done();
-                });
-            }
-        }, ()=>{
-            access.set(returnValue, resultSpec.resultSetLocation, items);
-            returnContent(res, returnValue, errorConfig, config);
-        });
-    }).catch((ex)=>{
-        console.log(ex);
-        returnError(res, ex, errorConfig, config)
-    });*/
 };
 
 DummyEndpoint.prototype.attach = function(expressInstance){

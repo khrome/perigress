@@ -52,6 +52,7 @@
     "seed-random": "^2.2.0",
     "sift": "^16.0.0",
     "to-json-schema": "^0.2.5",
+    "tree-pop": "0.0.1",
     "well-known-regex": "0.0.7"
   }
 }
