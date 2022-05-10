@@ -423,12 +423,12 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
                     });
                     //console.log('TPE', tpe);
                     ob.generate(seed, (err, generated)=>{
-                        populate.tree(ob.options.name, generated, [
+                        populate.tree(ob.options.name, generated, tpe /*[
                             //'sessionId',
                             //'<post',
                             //'userAddressLink:user:address'
                             'userTransaction:user:transaction'
-                        ], (err, tree)=>{
+                        ]*/, (err, tree)=>{
                             items[index] = tree;
                             done();
                         });
