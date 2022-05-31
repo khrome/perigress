@@ -31,10 +31,15 @@ describe('perigress', ()=>{
             api.ready.then(()=>{
                 api.attach(app);
                 const server = app.listen(port, ()=>{
+                    let url = `http://localhost:${port}/v1/transaction/F74bf5aF-aB23-4FCa-BfC5-ebA5480FDf64`
                     request({
-                        url: `http://localhost:${port}/v1/transaction/F74bf5aF-aB23-4FCa-BfC5-ebA5480FDf64`,
+                        url,
                         method: 'POST'
                     }, (err, res, body)=>{
+                        request({
+                            url: `http://localhost:${port}/v1/transaction/10`,
+                            method: 'POST'
+                        }, (err2, res2, body2)=>{
                         should.not.exist(err);
                         try{
                             let transaction = JSON.parse(body);
@@ -50,12 +55,14 @@ describe('perigress', ()=>{
                             valid.value.network.should.equal('VISA');
                             (!!valid).should.equal(true);
                             should.not.exist(valid.error);
-                            server.close(()=>{
+                            /*server.close(()=>{
                                 done();
-                            });
+                            });*/
                         }catch(ex){
+                            console.log(ex, body, body2, url, api.endpoints);
                             should.not.exist(ex);
                         }
+                        });
                     });
                 });
             }).catch((ex)=>{

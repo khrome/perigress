@@ -521,6 +521,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         basePath : urlPath,
         primaryKey : primaryKey
     }
+    this.basePath = urlPath;
 
     let urls = {
         list : template(
@@ -557,9 +558,274 @@ DummyEndpoint.prototype.attach = function(expressInstance){
                 '${basePath}/:${primaryKey}'
             ),
             pathOptions
+        ),
+        listSchema : template(
+            (
+                (config.paths && config.paths.display) ||
+                '${basePath}/list-schema.json'
+            ),
+            pathOptions
+        ),
+        itemSchema : template(
+            (
+                (config.paths && config.paths.display) ||
+                '${basePath}/display-schema.json'
+            ),
+            pathOptions
+        ),
+        createSchema : template(
+            (
+                (config.paths && config.paths.display) ||
+                '${basePath}/create-schema.json'
+            ),
+            pathOptions
+        ),
+        editSchema : template(
+            (
+                (config.paths && config.paths.display) ||
+                '${basePath}/edit-schema.json'
+            ),
+            pathOptions
         )
-    }
+    };
+    
+    this.urls = urls;
+    
+    let opts = {
+        objectName: this.options.name
+    };
+    
+    let resultSpec = ob.resultSpec();
+    let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
+    let readOnly = config.readOnlyFields || ['id'];
 
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](urls.listSchema, (req, res)=>{
+        let cleanedCopy = JSON.parse(JSON.stringify(cleaned));
+        if(cleanedCopy.properties && cleanedCopy.properties.results){
+            cleanedCopy.properties.results.items = this.schema;
+        }
+        
+        jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((exampleReturn)=>{
+            this.generate(1, (err, generated)=>{
+                exampleReturn.results = [generated];
+                res.send(JSON.stringify({
+                    post:{
+                        summary: template('Request a list of ${objectName}s', opts ),
+                        description: template('Request a list of ${objectName}s with an optional filter and the ability to bind subobjects together into trees.', opts),
+                        requestBody: {
+                            required: false,
+                            content: {
+                                'application/json' : {
+                                    schema : {
+                                        type: "object",
+                                        properties: {
+                                            query : { $ref:'#/components/schemas/QueryDocumentFilter' },
+                                            link: {type: "array", required: false, items:{ type: "string" }}
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        parameters:{
+                            
+                        },
+                        responses:{
+                            '200': {
+                                description: template('The ${objectName} that was saved.', opts ),
+                                content: {
+                                    'application/json' : {
+                                        schema : cleanedCopy,
+                                        example: exampleReturn
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    components: {
+                        schemas: {
+                            QueryDocumentFilter : {
+                                type: 'object',
+                                description: 'Any listing can be arbitrarily filtered using <a href="https://www.mongodb.com/docs/manual/core/document/#std-label-document-query-filter">Mongo Query Document Filters</a>',
+                                additionalProperties: {
+                                    type: 'object',
+                                    properties: {
+                                        "$in": {type:'array', required:false},
+                                        "$nin": {type:'array', required:false},
+                                        "$exists": {type:'boolean', required:false},
+                                        "$gte": {type:'number', required:false},
+                                        "$gt": {type:'number', required:false},
+                                        "$lte": {type:'number', required:false},
+                                        "$lt": {type:'number', required:false},
+                                        "$eq": { required:false},
+                                        "$ne": { required:false},
+                                        "$mod": {type:'array', required:false},
+                                        "$all": {type:'array', required:false},
+                                        "$and": {
+                                                type:'array', 
+                                                items:{
+                                                    $ref:'#/components/schemas/QueryDocumentFilter'
+                                                }, required:false
+                                        },
+                                        "$or": {
+                                                type:'array', 
+                                                items:{
+                                                    $ref:'#/components/schemas/QueryDocumentFilter'
+                                                }, required:false
+                                        },
+                                        "$nor": {
+                                                type:'array', 
+                                                items:{
+                                                    $ref:'#/components/schemas/QueryDocumentFilter'
+                                                }, required:false
+                                        },
+                                        "$not": {
+                                                type:'array', 
+                                                items:{
+                                                    $ref:'#/components/schemas/QueryDocumentFilter'
+                                                }, required:false
+                                        },
+                                        "$size": {type:'integer', required:false},
+                                        "$type": {type:'object', required:false},
+                                        "$lt": {type:'number', required:false},
+                                        "$elemMatch": {type:'object', required:false}
+                                    }
+                                  }
+                            }
+                        }
+                    }
+                }));
+            });
+        }).catch((ex)=>{
+            console.log(ex);
+        });
+        
+    });
+    
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](urls.itemSchema, (req, res)=>{
+        this.generate(1, (err, generated)=>{
+            res.send(JSON.stringify({
+                post:{
+                    summary: template('Request a single ${objectName}', opts ),
+                    description: template('Request a single ${objectName}, by it\'s id', opts),
+                    parameters:[
+                        {
+                            name: 'id',
+                            in: 'path',
+                            required: true,
+                            description: template('The id of the ${objectName}', opts),
+                            schema:{
+                                type : 'integer',
+                                format: 'int64',
+                                minimum: 1
+                            }
+                        }
+                    ],
+                    responses:{
+                        '200': {
+                            description: template('The requested ${objectName}.', opts ),
+                            content: {
+                                'application/json' : {
+                                    schema : this.schema,
+                                    example: generated
+                                }
+                            }
+                        }
+                    }
+                }
+            }));
+        });
+    });
+    
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](urls.editSchema, (req, res)=>{
+        this.generate(1, (err, generated)=>{
+            let writable = {};
+            Object.keys(generated).forEach((key)=>{
+                if(readOnly.indexOf(key) === -1 ) writable[key] = generated[key];
+            });
+            res.send(JSON.stringify({
+                post:{
+                    summary: template('Save an existing ${objectName}', opts ),
+                    description: template('Update an instance of ${objectName} with new values', opts),
+                    parameters:[
+                        {
+                            name: 'id',
+                            in: 'path',
+                            required: true,
+                            description: template('The id of the ${objectName}', opts),
+                            schema:{
+                                type : 'integer',
+                                format: 'int64',
+                                minimum: 1
+                            }
+                        }
+                    ],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json' : {
+                                schema : this.schema,
+                                example: writable
+                            }
+                        }
+                    },
+                    responses:{
+                        '200': {
+                            description: template('The ${objectName} that was saved.', opts ),
+                            content: {
+                                'application/json' : {
+                                    schema : this.schema,
+                                    example : generated
+                                }
+                            }
+                        }
+                    }
+                }
+            }))
+        });
+    });
+    expressInstance[
+        this.endpointOptions.method.toLowerCase()
+    ](urls.createSchema, (req, res)=>{
+        this.generate(1, (err, generated)=>{
+            let writable = {};
+            Object.keys(generated).forEach((key)=>{
+                if(readOnly.indexOf(key) === -1 ) writable[key] = generated[key];
+            });
+            res.send(JSON.stringify({
+                post:{
+                    summary: template('Save a new ${objectName}', opts ),
+                    description: template('Save a new instance of ${objectName}', opts),
+                    parameters:[],
+                    requestBody: {
+                        required: true,
+                        content: {
+                            'application/json' : {
+                                schema : this.schema,
+                                example: writable
+                            }
+                        }
+                    },
+                    responses:{
+                        '200': {
+                            description: template('The ${objectName} that was saved.', opts ),
+                            content: {
+                                'application/json' : {
+                                    schema : this.schema,
+                                    example : generated
+                                }
+                            }
+                        }
+                    }
+                }
+            }))
+        });
+    });
 
     expressInstance[
         this.endpointOptions.method.toLowerCase()
@@ -582,7 +848,7 @@ DummyEndpoint.prototype.attach = function(expressInstance){
             this.instances[req.body[primaryKey]] = req.body;
             returnContent(res, {success:true}, errorConfig, config);
         }else{
-            res.send('fail')
+            res.send('{"error":true, "message":"the provided data was not valid"}')
         }
     });
 

@@ -47,12 +47,66 @@ DummyAPI.prototype.attach = function(instance, cb){
         this.endpoints.forEach((endpoint)=>{
             endpoint.attach(instance);
         });
+        instance.get('/openapi.json', (req, res)=>{
+            let org = {
+                'list': '', 
+                'display': '', 
+                'create': '', 
+                'edit': ''
+            }
+            let serverList = [];
+            let pathReferenceDirectory = {};
+            this.endpoints.forEach((endpoint)=>{
+                org = {
+                    'list': endpoint.urls.list, 
+                    'display': endpoint.urls.display.replace(':id', '{id}'), 
+                    'create': endpoint.urls.create, 
+                    'edit': endpoint.urls.edit.replace(':id', '{id}')
+                }
+                Object.keys(org).forEach((key)=>{
+                    pathReferenceDirectory[org[key]] = {$ref: endpoint.basePath+'/'+key+'-schema.json'};
+                });
+                //console.log(endpoint); 
+            });
+            res.send(JSON.stringify({
+                openapi: '3.0.0',
+                servers: serverList,
+                paths: pathReferenceDirectory
+            }));
+        });
+        instance.get('/spec', (req, res)=>{
+            res.send(`<!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <meta
+                name="description"
+                content="SwaggerUI"
+              />
+              <title>SwaggerUI</title>
+              <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui.css" />
+            </head>
+            <body>
+            <div id="swagger-ui"></div>
+            <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js" crossorigin></script>
+            <script>
+              window.onload = () => {
+                window.ui = SwaggerUIBundle({
+                  url: 'http://localhost:8080/openapi.json',
+                  dom_id: '#swagger-ui',
+                });
+              };
+            </script>
+            </body>
+            </html>`);
+        });
         instance.all('*', (req, res)=>{
             returnError(res, new Error('Path not found.'), firstEndpoint.errorSpec(), firstEndpoint.config())
-        })
+        });
         if(cb) cb();
     });
-}
+};
 
 const getLeastGeneralPathMatch = (index, path)=>{
     if(!Array.isArray(path)) return getLeastGeneralPathMatch(index, path.split('/'));
@@ -62,11 +116,11 @@ const getLeastGeneralPathMatch = (index, path)=>{
     //do next match
     path.pop();
     return getLeastGeneralPathMatch(index, path)
-}
+};
 
 DummyAPI.prototype.resultSpec = function(dir){
     return getLeastGeneralPathMatch(this.resultSpecs, dir);
-}
+};
 
 DummyAPI.prototype.generateMigrations = function(otherAPI, options, cb){
     this.ready.then(()=>{

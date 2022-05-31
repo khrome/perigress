@@ -33,7 +33,8 @@
   },
   "scripts": {
     "sample-sequelize-create": "./bin/peri generate-tables ./test/paged-wkr-api --sequelize ../sequelize",
-    "sample-sql-create": "./bin/peri generate-tables ./test/paged-wkr-api --sql"
+    "sample-sql-create": "./bin/peri generate-tables ./test/paged-wkr-api --sql",
+    "sample-sql-serve": "./bin/peri serve ./test/paged-wkr-api"
   },
   "dependencies": {
     "app-term-kit": "^0.4.2",
