@@ -55,9 +55,9 @@ describe('perigress', ()=>{
                             valid.value.network.should.equal('VISA');
                             (!!valid).should.equal(true);
                             should.not.exist(valid.error);
-                            /*server.close(()=>{
+                            server.close(()=>{
                                 done();
-                            });*/
+                            });
                         }catch(ex){
                             console.log(ex, body, body2, url, api.endpoints);
                             should.not.exist(ex);
@@ -385,6 +385,39 @@ describe('perigress', ()=>{
                             console.log(ex)
                             throw ex;
                         }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+        
+        it('fetches a spec', function(done){
+            this.timeout(10000);
+            const app = express();
+            app.use(bodyParser.json({strict: false}));
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/openapi.json`,
+                        method: 'GET',
+                        json: true
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        should.exist(result);
+                        should.exist(result.openapi);
+                        result.openapi.should.equal('3.0.0');
+                        should.exist(result.servers);
+                        should.exist(result.paths);
+                        Object.keys(result.paths).length.should.equal(12);
+                        server.close(()=>{
+                            done();
+                        });
                     });
                 });
             }).catch((ex)=>{

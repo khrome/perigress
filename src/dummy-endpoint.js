@@ -200,7 +200,7 @@ DummyEndpoint.prototype.cleanedSchema = function(s){
         schema = joiToJSONSchema(schema);
     }
     let copy = JSON.parse(JSON.stringify(schema));
-    (Object.keys(copy.properties)).forEach((key)=>{
+    (Object.keys(copy.properties || {})).forEach((key)=>{
         if(copy.properties[key] && copy.properties[key].pattern){
             copy.properties[key].pattern = copy.properties[key].pattern.replace(/\?<[A-Za-z][A-Za-z0-9]*>/g, '')
         }
@@ -596,9 +596,8 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     };
     
     let resultSpec = ob.resultSpec();
-    let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
+    let cleaned = ob.cleanedSchema(resultSpec.returnSpec || {});
     let readOnly = config.readOnlyFields || ['id'];
-
     expressInstance[
         this.endpointOptions.method.toLowerCase()
     ](urls.listSchema, (req, res)=>{

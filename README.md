@@ -69,6 +69,10 @@ Finally, because you can compute the difference between schema, you can also gen
 - [Sequelize](https://github.com/khrome/perigress/blob/master/docs/sequelize-migration.md)
 - [Mongo](https://github.com/khrome/perigress/blob/master/docs/mongo-migration.md)<sup>TBD</sup>
 
+### 6. Documentation
+
+At any time the current spec is available at `/spec` with it's corresponding data at `/openapi.json`.
+
 Roadmap
 -------
 
@@ -79,19 +83,20 @@ Roadmap
 - [x] - example json support
 - [x] - url mapping
 - [x] - seed scripts
-- [ ] - documentation via OpenAPI
+- [x] - documentation via OpenAPI
 - [x] - error output
 - [x] - selector support [query filter documents](https://www.mongodb.com/docs/manual/core/document/#std-label-document-query-filter)
 - [x] - foreign key support
 - [x] - document assembly
 - [ ] - validator assembly
 - [ ] - db test suites
+- [ ] - verbose mode, clearer errors
 - [ ] - deep object support (allow subobjects and arrays in schema)
 - [ ] - [mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/methods/#std-label-mdb-shell-methods) + [mongojs](https://www.npmjs.com/package/mongojs) support
 - [ ] - [yup](https://www.npmjs.com/package/yup) support
 - [ ] - [prisma](https://www.prisma.io/) support
 - [ ] - [mongoose](https://www.npmjs.com/package/mongoose) support
-- [ ] - pluggable transports
+- [ ] - pluggable transports (ex: REST+XML, REST+form, REST+json ...)
 - [ ] - api generation
 
 
