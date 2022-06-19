@@ -88,9 +88,11 @@ Roadmap
 - [x] - selector support [query filter documents](https://www.mongodb.com/docs/manual/core/document/#std-label-document-query-filter)
 - [x] - foreign key support
 - [x] - document assembly
+- [x] - generate + persist requested filter values
 - [ ] - validator assembly
 - [ ] - db test suites
 - [ ] - verbose mode, clearer errors
+- [ ] - better documentation
 - [ ] - deep object support (allow subobjects and arrays in schema)
 - [ ] - [mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/methods/#std-label-mdb-shell-methods) + [mongojs](https://www.npmjs.com/package/mongojs) support
 - [ ] - [yup](https://www.npmjs.com/package/yup) support

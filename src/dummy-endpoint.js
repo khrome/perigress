@@ -346,24 +346,6 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
     let resultSpec = ob.resultSpec();
     let cleaned = ob.cleanedSchema(resultSpec.returnSpec);
     let identifier= ob.options.identifier || 'id';
-    /*let expandable = (type, fieldName, fieldValue) => {
-        // returns falsy *OR* {type, value}
-        const index = fieldName.lastIndexOf(capitalize(identifier));
-        if(index === -1) return false;
-        if(
-            // did we find it at the end of the string?
-            index + identifier.length === fieldName.length &&
-            // is the id an integer?
-            Number.isInteger(fieldValue)
-        ){
-            const linkField = fieldName.substring(0, fieldName.length - identifier.length);
-            return {
-                type: linkField,
-                suffix: fieldName.substring(linkField.length)
-            };
-        }
-        return false;
-    }*/
     const populate = new Pop({
         identifier,
         linkSuffix: '',
@@ -379,7 +361,6 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
         });
     }
     let fillList = (seeds, options, cb)=>{
-        //TODO: handle expansion
         let items = [];
         arrays.forEachEmission(seeds, (seed, index, done)=>{
             if(instances[seed]){
@@ -492,8 +473,65 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
                 let set = filled.filter(sift(options.query));
                 let len = set.length;
                 set = set.slice(opts.offset, opts.offset+opts.size);
-                writeResults(returnValue, set, len);
-                returnContent(res, returnValue, errorConfig, config);
+                let returnOptionValue = null;
+                if(options.generate && (returnOptionValue = parseInt(options.generate))){
+                    let extraReturnSeeds = [];
+                    for(let lcv=0; lcv < returnOptionValue; lcv++){
+                        extraReturnSeeds.push(idGen());
+                    }
+                    fillList(extraReturnSeeds, options, (err, extraFilled)=>{
+                        extraFilled.forEach((item)=>{
+                            Object.keys(options.query).forEach((key)=>{
+                                if(options.query[key]['$eq']){
+                                    item[key] = options.query[key]['$eq'];
+                                }
+                                if(options.query[key]['$in'] && Array.isArray(options.query[key]['$in'])){
+                                    let index = Math.round(Math.random() * options.query[key]['$in'].length);
+                                    item[key] = options.query[key]['$in'][index];
+                                }
+                                if(options.query[key]['$lt'] || options.query[key]['$gt']){
+                                    if(Number.isInteger(options.query[key]['$lt'] || options.query[key]['$gt'])){
+                                        const lower = options.query[key]['$gt'] !== null?options.query[key]['$gt']:Number.MIN_SAFE_INTEGER;
+                                        const upper = options.query[key]['$lt'] || Number.MAX_SAFE_INTEGER;
+                                        const diff =  upper - lower;
+                                        let result = Math.floor(Math.random()*diff)+ lower;
+                                        item[key] = result;
+                                    }else{
+                                        if( typeof (
+                                                options.query[key]['$lt'] || 
+                                                options.query[key]['$gt']
+                                            ) === 'string'
+                                        ){
+                                            const lower = new Date(options.query[key]['$gt'] || '01/01/1970 00:00:00 UTC');
+                                            const upper = new Date(options.query[key]['$lt']);
+                                            const lowerLimit = lower.getTime()
+                                            const diff =  upper.getTime() - lower.getTime();
+                                            let result = Math.floor(Math.random() * diff) + lowerLimit;
+                                            let resultDate = new Date();
+                                            resultDate.setTime(result);
+                                            item[key] = resultDate.toString();
+                                        }else{
+                                            const lower = options.query[key]['$gt'] || Number.MIN_VALUE;
+                                            const upper = options.query[key]['$lt'] || Number.MAX_VALUE;
+                                            const diff =  upper - lower;
+                                            let result = Math.random() * diff + lower;
+                                            item[key] = result;
+                                        }
+                                    }
+                                }
+                            });
+                            if(options.persistGenerated){
+                                ob.instances[item[identifier]] = item;
+                            }
+                            set.push(item);
+                        });
+                        writeResults(returnValue, set);
+                        returnContent(res, returnValue, errorConfig, config);
+                    });
+                }else{
+                    writeResults(returnValue, set, len);
+                    returnContent(res, returnValue, errorConfig, config);
+                }
             });
         }
     });

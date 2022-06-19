@@ -392,6 +392,62 @@ describe('perigress', ()=>{
             });
         });
         
+        it('returns explicit query results', (done)=>{
+            const app = express();
+            app.use(bodyParser.json({strict: false}));
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-api',
+                dir: __dirname
+            });
+            api.ready.then(()=>{
+                api.attach(app);
+                const server = app.listen(port, ()=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method: 'POST',
+                        json: {
+                            query: {
+                                'id': {$gt :0, $lt: 500},
+                                'blah': { $eq : 'foobar' },
+                                'foo' : { $in : ['bar', 'baz']},
+                                'bar': { $lt : '05/05/2012 00:00:00' },
+                            },
+                            generate: 4,
+                            persistGenerated: true
+                        }
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            let exampleItem = result.results[0];
+                            request({
+                                url: `http://localhost:${port}/v1/user/${exampleItem.id}`,
+                                method: 'POST',
+                                json: true
+                            }, (err, res, result)=>{
+                                should.not.exist(err);
+                                try{
+                                    should.exist(exampleItem);
+                                    should.exist(result);
+                                    exampleItem.should.deep.equal(result);
+                                    server.close(()=>{
+                                        done();
+                                    });
+                                }catch(ex){
+                                    console.log(ex)
+                                    throw ex;
+                                }
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            }).catch((ex)=>{
+                should.not.exist(ex);
+            });
+        });
+        
         it('fetches a spec', function(done){
             this.timeout(10000);
             const app = express();

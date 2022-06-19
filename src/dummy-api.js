@@ -75,6 +75,10 @@ DummyAPI.prototype.attach = function(instance, cb){
                     paths: pathReferenceDirectory
                 }));
             });
+            let port = process.env.PERIGRESS_OPENAPI_PORT || 8080;
+            let host = process.env.PERIGRESS_OPENAPI_HOST || 'localhost';
+            let protocol = process.env.PERIGRESS_OPENAPI_PROTOCOL || 'http';
+            let staticSwaggerHost = process.env.PERIGRESS_OPENAPI_STATIC_HOST || 'unpkg.com/swagger-ui-dist@4.5.0';
             instance.get('/spec', (req, res)=>{
                 res.send(`<!DOCTYPE html>
                 <html lang="en">
@@ -86,15 +90,15 @@ DummyAPI.prototype.attach = function(instance, cb){
                     content="SwaggerUI"
                   />
                   <title>SwaggerUI</title>
-                  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui.css" />
+                  <link rel="stylesheet" href="${protocol}://${staticSwaggerHost}/swagger-ui.css" />
                 </head>
                 <body>
                 <div id="swagger-ui"></div>
-                <script src="https://unpkg.com/swagger-ui-dist@4.5.0/swagger-ui-bundle.js" crossorigin></script>
+                <script src="${protocol}://${staticSwaggerHost}/swagger-ui-bundle.js" crossorigin></script>
                 <script>
                   window.onload = () => {
                     window.ui = SwaggerUIBundle({
-                      url: 'http://localhost:8080/openapi.json',
+                      url: '${protocol}://${host}:${port}/openapi.json',
                       dom_id: '#swagger-ui',
                     });
                   };
