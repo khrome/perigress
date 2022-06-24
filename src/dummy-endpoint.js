@@ -195,8 +195,8 @@ DummyEndpoint.prototype.toDataMigration = function(schema, opts, names){
 }
 
 DummyEndpoint.prototype.cleanedSchema = function(s){
-    let schema = s;
-    if(schema.type === 'object' && schema['$_root']){ //this is a joi def
+    let schema = s || {};
+    if(schema && schema.type === 'object' && schema['$_root']){ //this is a joi def
         schema = joiToJSONSchema(schema);
     }
     let copy = JSON.parse(JSON.stringify(schema));
@@ -276,6 +276,15 @@ DummyEndpoint.prototype.generate = function(id, o, c){
 
 
 const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = {})=>{
+    let config = ob.config();
+    let errorConfig = ob.errorSpec();
+    handleList(ob, pageNumber, urlPath, instances, options, (err, returnValue, set, len, write)=>{
+        write(returnValue, set, len);
+        returnContent(res, returnValue, errorConfig, config);
+    });
+};
+
+const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
     let lookup = (type, context, cb) => {
         let res = ob.api.endpoints.find((item)=>{
             return item.options.name === type;
@@ -426,13 +435,6 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
             cb(null, items);
         });
     }
-    let pageVars = ()=>{
-        let size = config.defaultSize || 30;
-        let pageFrom0 = pageNumber - 1;
-        let offset = pageFrom0 * size;
-        let count = Math.ceil(seeds.length/size);
-        return {size, pageFrom0, offset, count};
-    };
     let writeResults = (results, set, size)=>{
         if(config.total){
             access.set(results, config.total, size || seeds.length);
@@ -457,14 +459,22 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
         }
         access.set(results, resultSpec.resultSetLocation, set);
     }
+    let pageVars = ()=>{
+        let size = config.defaultSize || 30;
+        let pageFrom0 = pageNumber - 1;
+        let offset = pageFrom0 * size;
+        let count = Math.ceil(seeds.length/size);
+        return {size, pageFrom0, offset, count};
+    };
     jsonSchemaFaker.resolve(cleaned, [], process.cwd()).then((returnValue)=>{
         if(!options.query){ // we are going to do only the work on the page
             try{
                 let opts = pageVars();
                 seeds = seeds.slice(opts.offset, opts.offset+opts.size);
                 fillList(seeds, options, (err, filled)=>{
-                    writeResults(returnValue, filled);
-                    returnContent(res, returnValue, errorConfig, config);
+                    callback(null, returnValue, filled, null, writeResults);
+                    //writeResults(returnValue, filled);
+                    //returnContent(res, returnValue, errorConfig, config);
                 });
             }catch(ex){ console.log(ex) }
         }else{ // we do all the work: we need to reduce using full values
@@ -525,17 +535,94 @@ const handleListPage = (ob, pageNumber, req, res, urlPath, instances, options = 
                             }
                             set.push(item);
                         });
-                        writeResults(returnValue, set);
-                        returnContent(res, returnValue, errorConfig, config);
+                        callback(null, returnValue, set, null, writeResults)
+                        //writeResults(returnValue, set);
+                        //returnContent(res, returnValue, errorConfig, config);
                     });
                 }else{
-                    writeResults(returnValue, set, len);
-                    returnContent(res, returnValue, errorConfig, config);
+                    callback(null, returnValue, set, len, writeResults)
+                    //writeResults(returnValue, set, len);
+                    //returnContent(res, returnValue, errorConfig, config);
                 }
             });
         }
     });
 };
+
+DummyEndpoint.prototype.list = function(options, cb){
+    let callback = ks(cb);
+    try{
+    handleList(
+        this, 
+        (options.pageNumber?parseInt(options.pageNumber):1), 
+        `js://${this.options.name}/`, 
+        this.instances, 
+        options, 
+        (err, returnValue, set, len, write)=>{
+            callback(null, set);
+        }
+    );
+}catch(ex){
+    console.log(ex);
+}
+    return callback.return;
+}
+
+DummyEndpoint.prototype.create = function(options, cb){
+    let callback = ks(cb);
+    if(validate(options.body, this.originalSchema)){
+        this.instances[options.body[primaryKey]] = options.body;
+        callback(null, options.body);
+    }else{
+        callback(new Error("the provided data was not valid"));
+    }
+    return callback.return;
+}
+
+DummyEndpoint.prototype.read = function(options, cb){
+    let callback = ks(cb);
+    let config = this.config();
+    let primaryKey = config.primaryKey || 'id';
+    if(this.instances[options[primaryKey]]){
+        callback(null, this.instances[options[primaryKey]])
+    }else{
+        this.generate(options[primaryKey], (err, generated)=>{
+            callback(null, generated)
+        });
+    }
+    return callback.return;
+}
+
+DummyEndpoint.prototype.update = function(options, cb){
+    let callback = ks(cb);
+    let config = this.config();
+    let primaryKey = config.primaryKey || 'id';
+    getInstance(this, options[primaryKey], (err, item)=>{
+        if(options.body && typeof options.body === 'object'){
+            Object.keys(options.body).forEach((key)=>{
+                item[key] = options.body[key];
+            });
+            //item is now the set of values to save
+            if(validate(item, this.originalSchema)){
+                this.instances[options[primaryKey]] = item;
+                callback(null, item);
+            }else{
+                //fail
+                callback(new Error('Failed to update item'))
+            }
+        }else{
+            //fail
+            callback(new Error('Failed to update item'))
+        }
+    })
+    return callback.return;
+}
+
+DummyEndpoint.prototype.delete = function(options, cb){
+    let callback = ks(cb);
+    
+    return callback.return;
+}
 
 DummyEndpoint.prototype.attach = function(expressInstance){
     let prefix = this.options.path.substring(

@@ -89,6 +89,7 @@ Roadmap
 - [x] - foreign key support
 - [x] - document assembly
 - [x] - generate + persist requested filter values
+- [x] - internal requests
 - [ ] - validator assembly
 - [ ] - db test suites
 - [ ] - verbose mode, clearer errors

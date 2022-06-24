@@ -34,6 +34,19 @@ const DummyAPI = function(dir){
     }, 0);
 }
 
+DummyAPI.prototype.internal = function(name, operation, options, cb){
+    let callback = ks(cb);
+    this.ready.then(()=>{
+        let endpoint = this.endpoints.find((e)=>{
+            return e.options.name === name
+        });
+        if(!endpoint) throw new Error('endpoint not found');
+        if(!endpoint[operation]) throw new Error('operation not found');
+        endpoint[operation](options, callback);
+    });
+    return callback.return;
+};
+
 const returnError = (res, error, errorConfig, config)=>{
     let response = JSON.parse(JSON.stringify(errorConfig.structure));
     access.set(response, errorConfig.code, error.code);

@@ -482,4 +482,91 @@ describe('perigress', ()=>{
         });
 
     });
+    
+    describe('fetches internally', ()=>{
+        
+        it('runs the demo API and requests a consistent list', (done)=>{
+            const app = express();
+            const api = new Perigress.DummyAPI({
+                subpath : 'paged-wkr-api',
+                dir: __dirname
+            });
+            api.internal('user', 'list', {}, (err, results)=>{
+                let joiSchema = require(path.join(
+                    __dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+                ));
+                should.exist(results);
+                Array.isArray(results).should.equal(true);
+                should.exist(results[0]);
+                should.exist(results[0].id);
+                should.exist(results[0].firstName);
+                should.exist(results[0].lastName);
+                should.exist(results[0].email);
+                should.exist(results[0].phone);
+                should.exist(results[0].birthday);
+                results.forEach((res)=>{
+                    let valid = joiSchema.validate(res);
+                    (!!valid).should.equal(true);
+                    should.not.exist(valid.error);
+                });
+                done();
+            });
+        });
+        
+        it('runs the demo API and requests a consistent object', async ()=>{
+            try{
+                const app = express();
+                const api = new Perigress.DummyAPI({
+                    subpath : 'wkr-api',
+                    dir: __dirname
+                });
+                let joiSchema = require(path.join(
+                    __dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+                ));
+                let user = await api.internal('user', 'read', { id : 1 });
+                should.exist(user);
+                let valid = joiSchema.validate(user);
+                (!!valid).should.equal(true);
+                user.id.should.equal(1);
+                user.firstName.should.equal('Elizabeth');
+                user.lastName.should.equal('Zulauf');
+                user.email.should.equal('Zion.Reichel12@yahoo.com');
+                user.phone.should.equal('520-674-9557');
+            }catch(ex){
+                console.log(ex)
+                should.not.exist(ex);
+            }
+        });
+        
+        it('saves changes', (done)=>{
+            try{
+                const app = express();
+                const api = new Perigress.DummyAPI({
+                    subpath : 'wkr-api',
+                    dir: __dirname
+                });
+                let joiSchema = require(path.join(
+                    __dirname, 'paged-wkr-api', 'v1', 'user.spec.js'
+                ));
+                api.internal('user', 'list', {}, (err, users)=>{
+                    let item = users[0];
+                    item.firstName = 'Bob';
+                    api.internal('user', 'update', { 
+                        id : item.id, 
+                        body: item 
+                    }, (err, savedUser)=>{
+                        should.exist(savedUser);
+                        api.internal('user', 'read', { id : item.id}, (err, user)=>{
+                            user.firstName.should.equal('Bob');
+                            done();
+                        });
+                    });
+                });
+            }catch(ex){
+                console.log(ex)
+                should.not.exist(ex);
+            }
+        });
+        
+    });
 });
