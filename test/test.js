@@ -223,6 +223,137 @@ describe('perigress', ()=>{
         });
 
     });
+    
+    describe('works using a paging API with audit columns and custom FK (underscore) handling', ()=>{
+        it('loads and fetches generated objects through links', function(done){
+            this.timeout(20000);
+            const app = express();
+            app.use(bodyParser.json({strict: false}))
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-fk-api',
+                dir: __dirname
+            });
+            let joiSchema = require(path.join(
+                __dirname, 'audit-fk-api', 'v1', 'user.spec.js'
+            ));
+            api.ready.then(()=>{
+                // fetch a deep 
+                api.attach(app);
+                const server = app.listen(port, (err)=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/list`,
+                        method: 'POST',
+                        json: {
+                            query: {},
+                            link: ['user+transaction']
+                        }
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            should.exist(result);
+                            should.exist(result.results);
+                            should.exist(result.results[0]);
+                            should.exist(result.results[0].transaction_list);
+                            result.results[0].transaction_list.length.should.be.above(0);
+                            let item = result.results[0].transaction_list[0];
+                            item.card_id.should.equal( 'ACBF68d9-4AEA-4dd5-Aa3B-AE5F1cb7b8ad');
+                            item.card_id = 'SOMETHING_ELSE';
+                            request({
+                                url: `http://localhost:${port}/v1/transaction/${item.id}/edit`,
+                                method: 'POST',
+                                json: item
+                            }, (saveErr, saveRes, saveResult)=>{
+                                should.not.exist(saveErr);
+                                request({
+                                    url: `http://localhost:${port}/v1/user/list`,
+                                    method: 'POST',
+                                    json: {
+                                        query: {},
+                                        link: ['user+transaction']
+                                    }
+                                }, (secondErr, secondRes, secondResult)=>{
+                                    should.not.exist(secondErr);
+                                    should.exist(secondResult);
+                                    should.exist(secondResult.results);
+                                    should.exist(secondResult.results[0]);
+                                    should.exist(secondResult.results[0].transaction_list);
+                                    should.exist(secondResult.results[0].transaction_list.length);
+                                    secondResult.results[0].transaction_list.length.should.be.above(0);
+                                    result.results[0].transaction_list[0].card_id.should.equal( 'SOMETHING_ELSE');
+                                    server.close(()=>{
+                                        done();
+                                    });
+                                });
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            });
+        });
+        
+        it('can list objects it has saved', function(done){
+            this.timeout(20000);
+            const app = express();
+            app.use(bodyParser.json({strict: false}))
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-fk-api',
+                dir: __dirname
+            });
+            let joiSchema = require(path.join(
+                __dirname, 'audit-fk-api', 'v1', 'user.spec.js'
+            ));
+            api.ready.then(()=>{
+                // fetch a deep 
+                api.attach(app);
+                const server = app.listen(port, (err)=>{
+                    request({
+                        url: `http://localhost:${port}/v1/user/create`,
+                        method: 'POST',
+                        json: {
+                            firstName: 'Ed',
+                            lastName: "Beggler",
+                            email: 'robble@rauser.com',
+                            phone: '404-555-4202',
+                            updatedBy: 0234,
+                            modifiedBy: 5555,
+                            birthday: '1956-10-29T00:00:00.0Z',
+                            updatedOn: '2015-04-23T06:00:00.0Z',
+                            isDeleted: false,
+                            modifiedOn: '1993-03-24T07:00:00.0Z'
+                        }
+                    }, (err, res, result)=>{
+                        should.not.exist(err);
+                        try{
+                            should.exist(result);
+                            request({
+                                url: `http://localhost:${port}/v1/user/list`,
+                                method: 'POST',
+                                json: {
+                                    includeSaved: true,
+                                    query: { lastName: 'Beggler'}
+                                }
+                            }, (listErr, listRes, listResult)=>{
+                                should.exist(listResult);
+                                should.exist(listResult.results);
+                                should.exist(listResult.results[0]);
+                                listResult.results[0].firstName.should.equal('Ed');
+                                server.close(()=>{
+                                    done();
+                                });
+                            });
+                        }catch(ex){
+                            console.log(ex)
+                            throw ex;
+                        }
+                    });
+                });
+            });
+        });
+        
+    });
 
     describe('works using a paging API with audit columns', ()=>{
 

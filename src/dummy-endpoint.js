@@ -293,11 +293,16 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
         if(Array.isArray(context)){
             let items = [];
             arrays.forEachEmission(context, (seed, index, done)=>{
-                res.generate(seed, (err, generated)=>{
-                    generated[primaryKey] = seed;
-                    items[index] = generated;
+                if(res.instances[seed]){
+                    items[index] = res.instances[seed];
                     done();
-                });
+                }else{
+                    res.generate(seed, (err, generated)=>{
+                        generated[primaryKey] = seed;
+                        items[index] = generated;
+                        done();
+                    });
+                }
             }, ()=>{
                 cb && cb(null, items);
             });
@@ -308,11 +313,18 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
             if(keys.length === 1){
                 let parts = ob.options.expandable(type, keys[0], criteria[keys[0]]);
                 if(parts){ //is a foreign key
-                    res.generate(criteria[keys[0]], (err, generated)=>{
-                        generated[primaryKey] = criteria[identifier];
-                        items[0] = generated;
-                        cb && cb(null, items);
+                    let ep = ob.api.endpoints.find((item)=>{
+                        return item.options.name === parts.type;
                     });
+                    if(ep && ep.instances[criteria[identifier]]){
+                        cb && cb(null, [ep.instances[criteria[identifier]]]);
+                    }else{
+                        res.generate(criteria[keys[0]], (err, generated)=>{
+                            generated[primaryKey] = criteria[identifier];
+                            items[0] = generated;
+                            cb && cb(null, items);
+                        });
+                    }
                     return;
                 }
                 if(criteria[identifier] && criteria[identifier]['$in']){
@@ -350,6 +362,10 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
     for(let lcv=0; lcv < length; lcv++){
         seeds.push(idGen());
     }
+    if(options.includeSaved){
+        let ids = Object.keys(instances).map(id => instances[id][primaryKey]);
+        seeds = seeds.concat(ids);
+    }
     let items = [];
     jsonSchemaFaker.option('random', () => gen.randomInt(0, 1000)/1000);
     let resultSpec = ob.resultSpec();
@@ -360,6 +376,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
         linkSuffix: '',
         expandable: ob.options.expandable,
         listSuffix: 'list',
+        join: config.foreignKeyJoin,
         lookup
     });
     let stringsToStructs = (strs, field, type)=>{
@@ -368,7 +385,7 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
             res[field] = v;
             return res;
         });
-    }
+    };
     let fillList = (seeds, options, cb)=>{
         let items = [];
         arrays.forEachEmission(seeds, (seed, index, done)=>{
@@ -393,7 +410,6 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
                         'expand',
                         'external'
                     ));
-                    //console.log('EXP', expansions);
                     let tpe = expansions.map((expansion)=>{
                         switch(expansion.type){
                             case 'internal':
@@ -411,7 +427,6 @@ const handleList = (ob, pageNumber, urlPath, instances, options, callback)=>{
                             default: throw new Error('Unrecognized type:'+expansion.type)
                         }
                     });
-                    //console.log('TPE', tpe);
                     ob.generate(seed, (err, generated)=>{
                         populate.tree(ob.options.name, generated, tpe /*[
                             //'sessionId',
@@ -969,8 +984,10 @@ DummyEndpoint.prototype.attach = function(expressInstance){
         this.endpointOptions.method.toLowerCase()
     ](urls.create, (req, res)=>{
         if(validate(req.body, this.originalSchema)){
-            this.instances[req.body[primaryKey]] = req.body;
-            returnContent(res, {success:true}, errorConfig, config);
+            let item = req.body;
+            if(!item[primaryKey]) item[primaryKey] = Math.floor(Math.random()* 1000000000)
+            this.instances[item[primaryKey]] = item;
+            returnContent(res, {success: true, result: item}, errorConfig, config);
         }else{
             res.send('{"error":true, "message":"the provided data was not valid"}')
         }

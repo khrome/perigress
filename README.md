@@ -90,6 +90,7 @@ Roadmap
 - [x] - document assembly
 - [x] - generate + persist requested filter values
 - [x] - internal requests
+- [x] - option to include saved objects in listing
 - [ ] - validator assembly
 - [ ] - db test suites
 - [ ] - verbose mode, clearer errors
