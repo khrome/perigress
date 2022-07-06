@@ -294,7 +294,62 @@ describe('perigress', ()=>{
             });
         });
         
-        it('can list objects it has saved', function(done){
+        let hasConsistentObjectOfType = (server, port, type, id, field, value, cb)=>{
+            let joiSchema = require(path.join(
+                __dirname, 'audit-fk-api', 'v1', type+'.spec.js'
+            ));
+            request({
+                url: `http://localhost:${port}/v1/${type}/${id}`,
+                method: 'POST',
+                json: true
+            }, (err, res, result)=>{
+                should.not.exist(err);
+                request({
+                    url: `http://localhost:${port}/v1/${type}/${id}/edit`,
+                    method: 'POST',
+                    json: {
+                        firstName: 'Bob'
+                    }
+                }, (editErr, editRes, editResult)=>{
+                    should.not.exist(editErr);
+                    request({
+                        url: `http://localhost:${port}/v1/${type}/${id}`,
+                        method: 'POST',
+                        json: true
+                    }, (secondErr, secondRes, secondResult)=>{
+                        should.not.exist(secondErr);
+                        Object.keys(result).should.deep.equal(Object.keys(secondResult))
+                        cb(null);
+                    });
+                });
+            });
+        };
+        
+        it('can list objects it has saved consistently', function(done){
+            this.timeout(20000);
+            const app = express();
+            app.use(bodyParser.json({strict: false}))
+            const api = new Perigress.DummyAPI({
+                subpath : 'audit-fk-api',
+                dir: __dirname
+            });
+            let joiSchema = require(path.join(
+                __dirname, 'audit-fk-api', 'v1', 'user.spec.js'
+            ));
+            api.ready.then(()=>{
+                // fetch a deep 
+                api.attach(app);
+                const server = app.listen(port, (err)=>{
+                    hasConsistentObjectOfType(server, port, 'user', 23872837, 'firstName', 'Bob', (err)=>{
+                        server.close(()=>{
+                            done();
+                        });
+                    });
+                });
+            });
+        });
+        
+        it('returns a consistent type', function(done){
             this.timeout(20000);
             const app = express();
             app.use(bodyParser.json({strict: false}))

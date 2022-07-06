@@ -32,6 +32,7 @@ const returnError = (res, error, errorConfig, config)=>{
 };
 
 const returnContent = (res, result, errorConfig, config)=>{
+    res.setHeader('Content-Type', 'application/json');
     res.send(JSON.stringify(result, null, '    '));
 };
 
@@ -650,10 +651,12 @@ DummyEndpoint.prototype.attach = function(expressInstance){
     let primaryKey = config.primaryKey || 'id';
 
     getInstance = (ob, key, cb)=>{
-        if(this.instances[key]){
-            cb(null, this.instances[key]);
+        if(ob.instances[key]){
+            cb(null, ob.instances[key]);
         }else{
-            this.generate(key, cb);
+            ob.generate(key, (err, instance)=>{
+                cb(err, instance);
+            });
         }
     }
 
