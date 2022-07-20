@@ -47,6 +47,25 @@ DummyAPI.prototype.internal = function(name, operation, options, cb){
     return callback.return;
 };
 
+DummyAPI.prototype.log = function(message, level){
+    if(this.debug || this.verbose){ //any other valid log levels should be here, too
+        if(level === true && !this.handleLog){ //before we have a logger (conf is loaded), dump to console
+            console.log(message);
+        }else{ //if we have a config, use that
+            let config = this.config();
+            let log = (this.handleLog || config.log);
+            if(log){
+                const ll = (typeof level === string && log.levels)?
+                    log.levels[level]:
+                    level;
+                log(message, ll);
+            }else{
+                console.log(message);
+            }
+        }
+    }
+};
+
 const returnError = (res, error, errorConfig, config)=>{
     let response = JSON.parse(JSON.stringify(errorConfig.structure));
     access.set(response, errorConfig.code, error.code);
@@ -112,6 +131,7 @@ DummyAPI.prototype.attach = function(instance, cb){
                   window.onload = () => {
                     window.ui = SwaggerUIBundle({
                       url: '${protocol}://${host}:${port}/openapi.json',
+                      deepLinking: true,
                       dom_id: '#swagger-ui',
                     });
                   };
@@ -223,7 +243,9 @@ DummyAPI.prototype.errorSpec = function(dir){
 }
 
 DummyAPI.prototype.config = function(dir){
-    return getLeastGeneralPathMatch(this.configSpecs, dir);
+    if(!this._builtConfigs) this._builtConfigs = {};
+    if(this._builtConfigs[dir]) return this._builtConfigs[dir];
+    return this._builtConfigs[dir] = getLeastGeneralPathMatch(this.configSpecs, dir);
 }
 
 DummyAPI.prototype.load = function(dir, cb){
@@ -247,6 +269,9 @@ DummyAPI.prototype.load = function(dir, cb){
         writeInto(this.resultSpecs, resultsIndex);
         writeInto(this.errorSpecs, errorIndex);
         writeInto(this.configSpecs, configIndex);
+        if(this.configSpec && (this.configSpecs.verbose || this.configSpecs.debug)){
+            this.log(`{"action": "directoryScan", "directory":"${directory}"}`, 'debug');
+        }
         if(!specs) throw new Error('ack '+directory);
         arrays.forEachEmission(specs, (spec, index, emit)=>{
             let parts = spec.spec.split('.');
@@ -270,10 +295,14 @@ DummyAPI.prototype.load = function(dir, cb){
 };
 
 DummyAPI.prototype.scan = function(directory, cb, incomingSpecs, iResults, iErrors, iConfig){
+    this.log(`{"action": "directoryScan", "directory":"${directory}"}`, true);
     const callback = ks(cb);
     let resultSpecs = iResults || {};
     let errorSpecs = iErrors || {};
     let configSpecs = iConfig || {};
+    let debugLog = (message, level)=>{
+        this.log(message, 'debug');
+    }
     fs.readdir(directory, (err, result)=>{
         if(err || (!result) || !result.length) return cb();
         let specs = incomingSpecs || [];
@@ -295,18 +324,22 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs, iResults, iErro
                 }else{
                     let fixedPath = itemPath[0] === '/'?itemPath:path.join(process.cwd(), itemPath);
                     if(item === 'resultSet.spec.js'){
+                        this.log(`{"action": "directoryScanFind", "resultSpec":"${item}"}`, true);
                         resultSpecs[directory] = require(fixedPath);
                         return done();
                     }
                     if(item === 'error.spec.js'){
+                        this.log(`{"action": "directoryScanFind", "errorSpec":"${item}"}`, true);
                         errorSpecs[directory] = require(fixedPath);
                         return done();
                     }
                     if(item === 'config.js'){
+                        this.log(`{"action": "directoryScanFind", "config":"${item}"}`, true);
                         configSpecs[directory] = require(fixedPath);
                         return done();
                     }
                     if(item.indexOf('.spec.js') !== -1){
+                        this.log(`{"action": "directoryScanFind", "joiSpec":"${item}"}`, true);
                         specs.push({
                             spec: item,
                             path: directory,
@@ -315,6 +348,7 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs, iResults, iErro
                         return done();
                     }
                     if(item.indexOf('.spec.json') !== -1){
+                        this.log(`{"action": "directoryScanFind", "jsonSpec":"${item}"}`, true);
                         specs.push({
                             spec: item,
                             path: directory,
@@ -323,6 +357,7 @@ DummyAPI.prototype.scan = function(directory, cb, incomingSpecs, iResults, iErro
                         return done();
                     }
                     if(item.indexOf('.spec.schema.json') !== -1){
+                        this.log(`{"action": "directoryScanFind", "jsonSchema":"${item}"}`, true);
                         specs.push({
                             spec: item,
                             path: directory,

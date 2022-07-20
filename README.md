@@ -91,9 +91,11 @@ Roadmap
 - [x] - generate + persist requested filter values
 - [x] - internal requests
 - [x] - option to include saved objects in listing
+- [x] - verbose mode
+- [x] - save endpoint with symmetric object disassembly
 - [ ] - validator assembly
 - [ ] - db test suites
-- [ ] - verbose mode, clearer errors
+- [ ] - better error handling
 - [ ] - better documentation
 - [ ] - deep object support (allow subobjects and arrays in schema)
 - [ ] - [mongosh](https://www.mongodb.com/docs/mongodb-shell/reference/methods/#std-label-mdb-shell-methods) + [mongojs](https://www.npmjs.com/package/mongojs) support

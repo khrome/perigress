@@ -1,6 +1,6 @@
 {
   "name": "perigress",
-  "version": "0.0.25",
+  "version": "0.0.26",
   "main": "perigress.js",
   "description": "Contract testing + Data Generation",
   "keywords": [
@@ -54,7 +54,7 @@
     "seed-random": "^2.2.0",
     "sift": "^16.0.0",
     "to-json-schema": "^0.2.5",
-    "tree-pop": "0.0.2",
+    "tree-pop": "0.0.5",
     "well-known-regex": "0.0.7"
   }
 }
