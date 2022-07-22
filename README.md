@@ -93,6 +93,7 @@ Roadmap
 - [x] - option to include saved objects in listing
 - [x] - verbose mode
 - [x] - save endpoint with symmetric object disassembly
+- [x] - external express instances in mock
 - [ ] - validator assembly
 - [ ] - db test suites
 - [ ] - better error handling

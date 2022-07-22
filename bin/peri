@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 const CLApp = require('app-term-kit');
 const express = require('express');
+const path = require('path');
 const bodyParser = require('body-parser');
 const Perigress = require('../perigress');
 
@@ -26,8 +27,12 @@ app.command({
     ],
     action : function(argv, target, complete){
         const port = argv.port || 8080;
-        const app = express();
-        app.use(bodyParser.json({strict: false}))
+        const expressInstanceFetcher = argv.express?require(path.join(process.cwd(), argv.express)):()=>{
+          const app = express();
+          app.use(bodyParser.json({strict: false}))
+          return app;
+        }
+        const app = expressInstanceFetcher();
         const api = new Perigress.DummyAPI({
             subpath : target,
             dir: process.cwd()
@@ -136,6 +141,7 @@ app.argument('sequelize', 'string', 'Output sequelize scripts for data definitio
 app.argument('port', 'number', 'port to run the server on', 1);
 app.argument('sql', 'boolean', 'Output raw SQL for data definitions', 0);
 app.argument('seperate', 'boolean', 'Spit data model into multiple files', 0);
+app.argument('express', 'string', 'express instance to use', 0);
 
 app.header();
 app.footer();
