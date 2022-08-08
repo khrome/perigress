@@ -1,6 +1,6 @@
 {
   "name": "perigress",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "main": "perigress.js",
   "description": "Contract testing + Data Generation: integrated legacy module",
   "keywords": [
@@ -39,8 +39,8 @@
     "test": "./node_modules/mocha/bin/mocha"
   },
   "dependencies": {
-    "@perigress/mongonian": "0.0.2",
-    "@perigress/peri": "0.0.1",
-    "@perigress/perigress": "0.1.1"
+    "@perigress/mongonian": "0.0.5",
+    "@perigress/peri": "0.0.3",
+    "@perigress/perigress": "0.1.4"
   }
 }
